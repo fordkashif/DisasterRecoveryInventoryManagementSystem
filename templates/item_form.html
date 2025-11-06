@@ -18,8 +18,25 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Unit of Measure *</label>
-      <input class="form-control" name="unit" value="{{ item.unit if item else "unit" }}" placeholder="e.g., kg, L, pcs, boxes">
-      <small class="text-muted">e.g., kg, L, pcs, boxes</small>
+      <select class="form-select" name="unit" required>
+        <option value="">-- Select Unit --</option>
+        <option value="pcs" {% if item and item.unit == "pcs" %}selected{% endif %}>pcs - Pieces</option>
+        <option value="set" {% if item and item.unit == "set" %}selected{% endif %}>set - Set</option>
+        <option value="box" {% if item and item.unit == "box" %}selected{% endif %}>box - Box</option>
+        <option value="pack" {% if item and item.unit == "pack" %}selected{% endif %}>pack - Pack</option>
+        <option value="bag" {% if item and item.unit == "bag" %}selected{% endif %}>bag - Bag</option>
+        <option value="kg" {% if item and item.unit == "kg" %}selected{% endif %}>kg - Kilogram</option>
+        <option value="g" {% if item and item.unit == "g" %}selected{% endif %}>g - Grams</option>
+        <option value="L" {% if item and item.unit == "L" %}selected{% endif %}>L - Litres</option>
+        <option value="ml" {% if item and item.unit == "ml" %}selected{% endif %}>ml - Millilitres</option>
+        <option value="tin" {% if item and item.unit == "tin" %}selected{% endif %}>tin - Tin/Can</option>
+        <option value="bottle" {% if item and item.unit == "bottle" %}selected{% endif %}>bottle - Bottle</option>
+        <option value="roll" {% if item and item.unit == "roll" %}selected{% endif %}>roll - Roll</option>
+        <option value="tube" {% if item and item.unit == "tube" %}selected{% endif %}>tube - Tube</option>
+        <option value="pkt" {% if item and item.unit == "pkt" %}selected{% endif %}>pkt - Packet</option>
+        <option value="kit" {% if item and item.unit == "kit" %}selected{% endif %}>kit - Kit</option>
+      </select>
+      <small class="text-muted">Select the appropriate unit for this item</small>
     </div>
     <div class="col-md-3">
       <label class="form-label">Min Qty</label>
