@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <h3>{{ "Edit Item" if item else "New Item" }}</h3>
+{% if item %}
+<div class="alert alert-info mb-3">
+  <strong>SKU:</strong> {{ item.sku }}
+</div>
+{% endif %}
 <form method="post" class="mt-3">
   <div class="row g-3">
     <div class="col-md-6">
@@ -16,21 +21,20 @@
       <input class="form-control" name="unit" value="{{ item.unit if item else "unit" }}">
     </div>
     <div class="col-md-3">
-      <label class="form-label">SKU</label>
-      <input class="form-control" name="sku" value="{{ item.sku if item else "" }}">
-    </div>
-    <div class="col-md-3">
       <label class="form-label">Min Qty</label>
       <input class="form-control" type="number" name="min_qty" value="{{ item.min_qty if item else 0 }}">
     </div>
     <div class="col-12">
-      <label class="form-label">Notes</label>
-      <textarea class="form-control" name="notes" rows="2">{{ item.notes if item else "" }}</textarea>
+      <label class="form-label">Description</label>
+      <textarea class="form-control" name="description" rows="3" placeholder="Optional description or notes about this item">{{ item.description if item else "" }}</textarea>
     </div>
   </div>
   <div class="mt-3">
     <button class="btn btn-primary">Save</button>
     <a class="btn btn-secondary" href="{{ url_for('items') }}">Cancel</a>
   </div>
+  {% if not item %}
+  <small class="text-muted">Note: SKU will be automatically generated when you save this item.</small>
+  {% endif %}
 </form>
 {% endblock %}

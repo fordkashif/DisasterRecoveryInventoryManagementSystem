@@ -27,18 +27,47 @@
   </div>
 </div>
 
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Stock by Location</span>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('locations') }}">Manage Locations</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead><tr><th>Location</th><th>Total Units</th><th></th></tr></thead>
+          <tbody>
+          {% for loc in locations %}
+            <tr>
+              <td><a href="{{ url_for('location_inventory', location_id=loc.id) }}">{{ loc.name }}</a></td>
+              <td>{{ stock_by_location.get(loc.id, 0) }}</td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('location_inventory', location_id=loc.id) }}">View Inventory</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3" class="text-center py-3">No locations found.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row g-3">
   <div class="col-md-6">
     <div class="card">
       <div class="card-header">Low Stock Items</div>
       <div class="card-body p-0">
         <table class="table mb-0">
-          <thead><tr><th>Item</th><th>Category</th><th>Stock</th><th>Min</th></tr></thead>
+          <thead><tr><th>Item</th><th>Location</th><th>Stock</th><th>Min</th></tr></thead>
           <tbody>
-          {% for item, stock in low_stock %}
+          {% for item, location, stock in low_stock %}
             <tr>
-              <td><a href="{{ url_for('item_edit', item_id=item.id) }}">{{ item.name }}</a></td>
-              <td>{{ item.category or "—" }}</td>
+              <td><a href="{{ url_for('item_edit', item_sku=item.sku) }}">{{ item.name }}</a></td>
+              <td>{{ location.name }}</td>
               <td>{{ stock or 0 }} {{ item.unit }}</td>
               <td>{{ item.min_qty }}</td>
             </tr>

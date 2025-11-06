@@ -22,19 +22,34 @@
 </form>
 
 <table class="table table-striped">
-  <thead><tr><th>Name</th><th>Category</th><th>Stock</th><th>Unit</th><th>Min</th><th></th></tr></thead>
-  <tbody>
-  {% for item, stock in rows %}
+  <thead>
     <tr>
+      <th>SKU</th>
+      <th>Name</th>
+      <th>Category</th>
+      {% for loc in locations %}
+      <th>{{ loc.name }}</th>
+      {% endfor %}
+      <th>Unit</th>
+      <th>Min</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in items %}
+    <tr>
+      <td><code>{{ item.sku }}</code></td>
       <td>{{ item.name }}</td>
       <td>{{ item.category or "—" }}</td>
-      <td>{{ stock or 0 }}</td>
+      {% for loc in locations %}
+      <td>{{ stock_map.get((item.sku, loc.id), 0) }}</td>
+      {% endfor %}
       <td>{{ item.unit }}</td>
       <td>{{ item.min_qty }}</td>
-      <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('item_edit', item_id=item.id) }}">Edit</a></td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('item_edit', item_sku=item.sku) }}">Edit</a></td>
     </tr>
   {% else %}
-    <tr><td colspan="6" class="text-center py-3">No items found.</td></tr>
+    <tr><td colspan="{{ 6 + locations|length }}" class="text-center py-3">No items found.</td></tr>
   {% endfor %}
   </tbody>
 </table>

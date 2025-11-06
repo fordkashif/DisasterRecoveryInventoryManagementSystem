@@ -1,19 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Stock by Item</h3>
+<h3>Stock Report by Location</h3>
 <table class="table table-striped">
-  <thead><tr><th>Category</th><th>Item</th><th>Stock</th><th>Unit</th><th>Min</th></tr></thead>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Item</th>
+      {% for loc in locations %}
+      <th>{{ loc.name }}</th>
+      {% endfor %}
+      <th>Unit</th>
+      <th>Min</th>
+    </tr>
+  </thead>
   <tbody>
-  {% for item, stock in rows %}
+  {% for item in items %}
     <tr>
       <td>{{ item.category or "—" }}</td>
       <td>{{ item.name }}</td>
-      <td>{{ stock or 0 }}</td>
+      {% for loc in locations %}
+      <td>{{ stock_map.get((item.id, loc.id), 0) }}</td>
+      {% endfor %}
       <td>{{ item.unit }}</td>
       <td>{{ item.min_qty }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="5" class="text-center py-3">No data.</td></tr>
+    <tr><td colspan="{{ 4 + locations|length }}" class="text-center py-3">No data.</td></tr>
   {% endfor %}
   </tbody>
 </table>

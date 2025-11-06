@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Inventory at {{ location.name }}</h3>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('locations') }}">Back to Locations</a>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Item</th>
+      <th>Stock</th>
+      <th>Unit</th>
+      <th>Min Required</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item, stock in rows %}
+    <tr>
+      <td>{{ item.category or "—" }}</td>
+      <td>{{ item.name }}</td>
+      <td>{{ stock or 0 }}</td>
+      <td>{{ item.unit }}</td>
+      <td>{{ item.min_qty }}</td>
+      <td>
+        {% if stock and item.min_qty and stock < item.min_qty %}
+          <span class="badge bg-warning text-dark">Low Stock</span>
+        {% elif stock and stock > 0 %}
+          <span class="badge bg-success">In Stock</span>
+        {% else %}
+          <span class="badge bg-secondary">Out of Stock</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="text-center py-3">No inventory at this location yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

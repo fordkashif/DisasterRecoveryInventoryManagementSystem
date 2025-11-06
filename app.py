@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, case
 import pandas as pd
+import secrets
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
@@ -18,13 +19,12 @@ class Location(db.Model):
     name = db.Column(db.String(120), unique=True, nullable=False)  # e.g., Parish depot / shelter
 
 class Item(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    sku = db.Column(db.String(64), unique=True, nullable=True)
+    sku = db.Column(db.String(64), primary_key=True)
     name = db.Column(db.String(200), nullable=False, index=True)
     category = db.Column(db.String(120), nullable=True, index=True)       # e.g., Food, Water, Hygiene, Medical
     unit = db.Column(db.String(32), nullable=False, default="unit")        # e.g., pcs, kg, L
     min_qty = db.Column(db.Integer, nullable=False, default=0)             # threshold for "low stock"
-    notes = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True)
 
 class Donor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -39,7 +39,7 @@ class Beneficiary(db.Model):
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    item_id = db.Column(db.Integer, db.ForeignKey("item.id"), nullable=False)
+    item_sku = db.Column(db.String(64), db.ForeignKey("item.sku"), nullable=False)
     ttype = db.Column(db.String(8), nullable=False)  # "IN" or "OUT"
     qty = db.Column(db.Integer, nullable=False)
     location_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)
@@ -57,12 +57,34 @@ class Transaction(db.Model):
 def normalize_name(s: str) -> str:
     return " ".join((s or "").strip().lower().split())
 
+def generate_sku() -> str:
+    """Generate a unique SKU for an item"""
+    while True:
+        # Generate format: ITM-XXXXXX where X is alphanumeric
+        sku = f"ITM-{secrets.token_hex(3).upper()}"
+        # Check if SKU already exists
+        if not Item.query.filter_by(sku=sku).first():
+            return sku
+
 def get_stock_query():
     # Stock = sum(IN) - sum(OUT) grouped by item
     stock_expr = func.sum(
         case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty)
     ).label("stock")
-    return db.session.query(Item, stock_expr).join(Transaction, Item.id == Transaction.item_id, isouter=True).group_by(Item.id)
+    return db.session.query(Item, stock_expr).join(Transaction, Item.sku == Transaction.item_sku, isouter=True).group_by(Item.sku)
+
+def get_stock_by_location():
+    # Returns dict: {(item_sku, location_id): stock_qty}
+    stock_expr = func.sum(
+        case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty)
+    ).label("stock")
+    rows = db.session.query(
+        Transaction.item_sku,
+        Transaction.location_id,
+        stock_expr
+    ).group_by(Transaction.item_sku, Transaction.location_id).all()
+    
+    return {(item_sku, loc_id): stock for item_sku, loc_id, stock in rows}
 
 def ensure_seed_data():
     # Seed locations
@@ -77,15 +99,30 @@ def ensure_seed_data():
 def dashboard():
     # KPIs
     total_items = Item.query.count()
-    stock_rows = get_stock_query().all()
-    total_in_stock = sum((row[1] or 0) for row in stock_rows)
-    # Low stock
+    locations = Location.query.order_by(Location.name.asc()).all()
+    
+    # Stock by location
+    stock_by_location = {}
+    for loc in locations:
+        stock_total = db.session.query(
+            func.sum(case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty))
+        ).filter(Transaction.location_id == loc.id).scalar()
+        stock_by_location[loc.id] = stock_total or 0
+    
+    total_in_stock = sum(stock_by_location.values())
+    
+    # Low stock items (by location)
     low = []
-    for item, stock in stock_rows:
-        stock = stock or 0
-        if item.min_qty and stock < item.min_qty:
-            low.append((item, stock))
-    low.sort(key=lambda x: x[1])
+    stock_map = get_stock_by_location()
+    items = Item.query.all()
+    
+    for item in items:
+        for loc in locations:
+            stock = stock_map.get((item.sku, loc.id), 0)
+            if item.min_qty and stock < item.min_qty and stock >= 0:
+                low.append((item, loc, stock))
+    
+    low.sort(key=lambda x: x[2])  # Sort by stock level
 
     # Recent transactions
     recent = Transaction.query.order_by(Transaction.created_at.desc()).limit(10).all()
@@ -93,20 +130,31 @@ def dashboard():
                            total_items=total_items,
                            total_in_stock=total_in_stock,
                            low_stock=low,
-                           recent=recent)
+                           recent=recent,
+                           locations=locations,
+                           stock_by_location=stock_by_location)
 
 @app.route("/items")
 def items():
     q = request.args.get("q", "").strip()
     cat = request.args.get("category", "").strip()
-    query = get_stock_query()
+    
+    # Get all items
+    query = Item.query
     if q:
         like = f"%{q.lower()}%"
         query = query.filter(func.lower(Item.name).like(like) | func.lower(Item.sku).like(like))
     if cat:
         query = query.filter(func.lower(Item.category) == cat.lower())
-    rows = query.order_by(Item.name.asc()).all()
-    return render_template("items.html", rows=rows, q=q, cat=cat)
+    
+    all_items = query.order_by(Item.name.asc()).all()
+    
+    # Get stock by location for all items
+    stock_map = get_stock_by_location()
+    locations = Location.query.order_by(Location.name.asc()).all()
+    
+    return render_template("items.html", items=all_items, q=q, cat=cat, 
+                          locations=locations, stock_map=stock_map)
 
 @app.route("/items/new", methods=["GET", "POST"])
 def item_new():
@@ -114,34 +162,34 @@ def item_new():
         name = request.form["name"].strip()
         category = request.form.get("category", "").strip() or None
         unit = request.form.get("unit", "unit").strip() or "unit"
-        sku = request.form.get("sku", "").strip() or None
         min_qty = int(request.form.get("min_qty", "0") or 0)
-        notes = request.form.get("notes", "").strip() or None
+        description = request.form.get("description", "").strip() or None
 
         # Duplicate suggestion by normalized name+category+unit
         norm = normalize_name(name)
         existing = Item.query.filter(func.lower(Item.name) == norm, Item.category == category, Item.unit == unit).first()
         if existing:
             flash(f"Possible duplicate found: '{existing.name}' in category '{existing.category or '—'}' (unit: {existing.unit}). Consider editing that item instead.", "warning")
-            return redirect(url_for("item_edit", item_id=existing.id))
+            return redirect(url_for("item_edit", item_sku=existing.sku))
 
-        item = Item(name=name, category=category, unit=unit, sku=sku, min_qty=min_qty, notes=notes)
+        # Generate SKU
+        sku = generate_sku()
+        item = Item(sku=sku, name=name, category=category, unit=unit, min_qty=min_qty, description=description)
         db.session.add(item)
         db.session.commit()
-        flash("Item created.", "success")
+        flash(f"Item created with SKU: {sku}", "success")
         return redirect(url_for("items"))
     return render_template("item_form.html", item=None)
 
-@app.route("/items/<int:item_id>/edit", methods=["GET", "POST"])
-def item_edit(item_id):
-    item = Item.query.get_or_404(item_id)
+@app.route("/items/<item_sku>/edit", methods=["GET", "POST"])
+def item_edit(item_sku):
+    item = Item.query.get_or_404(item_sku)
     if request.method == "POST":
         item.name = request.form["name"].strip()
         item.category = request.form.get("category", "").strip() or None
         item.unit = request.form.get("unit", "unit").strip() or "unit"
-        item.sku = request.form.get("sku", "").strip() or None
         item.min_qty = int(request.form.get("min_qty", "0") or 0)
-        item.notes = request.form.get("notes", "").strip() or None
+        item.description = request.form.get("description", "").strip() or None
         db.session.commit()
         flash("Item updated.", "success")
         return redirect(url_for("items"))
@@ -152,9 +200,15 @@ def intake():
     items = Item.query.order_by(Item.name.asc()).all()
     locations = Location.query.order_by(Location.name.asc()).all()
     if request.method == "POST":
-        item_id = int(request.form["item_id"])
+        item_sku = request.form["item_sku"]
         qty = int(request.form["qty"])
         location_id = int(request.form["location_id"]) if request.form.get("location_id") else None
+        
+        # Location is required for inventory tracking
+        if not location_id:
+            flash("Please select a location for intake.", "danger")
+            return redirect(url_for("intake"))
+        
         donor_name = request.form.get("donor_name", "").strip() or None
         donor = None
         if donor_name:
@@ -165,7 +219,7 @@ def intake():
                 db.session.flush()
         notes = request.form.get("notes", "").strip() or None
 
-        tx = Transaction(item_id=item_id, ttype="IN", qty=qty, location_id=location_id,
+        tx = Transaction(item_sku=item_sku, ttype="IN", qty=qty, location_id=location_id,
                          donor_id=donor.id if donor else None, notes=notes)
         db.session.add(tx)
         db.session.commit()
@@ -178,7 +232,7 @@ def distribute():
     items = Item.query.order_by(Item.name.asc()).all()
     locations = Location.query.order_by(Location.name.asc()).all()
     if request.method == "POST":
-        item_id = int(request.form["item_id"])
+        item_sku = request.form["item_sku"]
         qty = int(request.form["qty"])
         location_id = int(request.form["location_id"]) if request.form.get("location_id") else None
         beneficiary_name = request.form.get("beneficiary_name", "").strip() or None
@@ -192,13 +246,19 @@ def distribute():
                 db.session.flush()
         notes = request.form.get("notes", "").strip() or None
 
-        # Check stock
-        stock_map = {i.id: s for i, s in get_stock_query().all()}
-        if stock_map.get(item_id, 0) < qty:
-            flash("Insufficient stock to distribute that quantity.", "danger")
+        # Check stock at the specific location
+        if location_id:
+            stock_map = get_stock_by_location()
+            location_stock = stock_map.get((item_sku, location_id), 0)
+            if location_stock < qty:
+                loc_name = Location.query.get(location_id).name
+                flash(f"Insufficient stock at {loc_name}. Available: {location_stock}, Requested: {qty}", "danger")
+                return redirect(url_for("distribute"))
+        else:
+            flash("Please select a location for distribution.", "danger")
             return redirect(url_for("distribute"))
 
-        tx = Transaction(item_id=item_id, ttype="OUT", qty=qty, location_id=location_id,
+        tx = Transaction(item_sku=item_sku, ttype="OUT", qty=qty, location_id=location_id,
                          beneficiary_id=beneficiary.id if beneficiary else None, notes=notes)
         db.session.add(tx)
         db.session.commit()
@@ -213,19 +273,22 @@ def transactions():
 
 @app.route("/reports/stock")
 def report_stock():
-    rows = get_stock_query().order_by(Item.category.asc(), Item.name.asc()).all()
-    return render_template("report_stock.html", rows=rows)
+    locations = Location.query.order_by(Location.name.asc()).all()
+    items = Item.query.order_by(Item.category.asc(), Item.name.asc()).all()
+    stock_map = get_stock_by_location()
+    
+    return render_template("report_stock.html", items=items, locations=locations, stock_map=stock_map)
 
 @app.route("/export/items.csv")
 def export_items():
     items = Item.query.all()
     df = pd.DataFrame([{
-        "sku": it.sku or "",
+        "sku": it.sku,
         "name": it.name,
         "category": it.category or "",
         "unit": it.unit,
         "min_qty": it.min_qty,
-        "notes": it.notes or "",
+        "description": it.description or "",
     } for it in items])
     csv_path = "items_export.csv"
     df.to_csv(csv_path, index=False)
@@ -246,22 +309,94 @@ def import_items():
                 continue
             category = str(row.get("category", "")).strip() or None
             unit = str(row.get("unit", "unit")).strip() or "unit"
-            sku = str(row.get("sku", "")).strip() or None
             min_qty = int(row.get("min_qty", 0) or 0)
-            notes = str(row.get("notes", "")).strip() or None
+            description = str(row.get("description", "")).strip() or None
 
             norm = normalize_name(name)
             existing = Item.query.filter(func.lower(Item.name) == norm, Item.category == category, Item.unit == unit).first()
             if existing:
                 skipped += 1
                 continue
-            item = Item(name=name, category=category, unit=unit, sku=sku, min_qty=min_qty, notes=notes)
+            # Generate SKU for imported items
+            sku = generate_sku()
+            item = Item(sku=sku, name=name, category=category, unit=unit, min_qty=min_qty, description=description)
             db.session.add(item)
             created += 1
         db.session.commit()
         flash(f"Import complete. Created {created}, skipped {skipped} duplicates.", "info")
         return redirect(url_for("items"))
     return render_template("import_items.html")
+
+@app.route("/locations")
+def locations():
+    locs = Location.query.order_by(Location.name.asc()).all()
+    # Get stock counts per location
+    stock_by_loc = {}
+    for loc in locs:
+        stock_rows = db.session.query(
+            func.sum(case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty))
+        ).filter(Transaction.location_id == loc.id).scalar()
+        stock_by_loc[loc.id] = stock_rows or 0
+    return render_template("locations.html", locations=locs, stock_by_loc=stock_by_loc)
+
+@app.route("/locations/new", methods=["GET", "POST"])
+def location_new():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        if not name:
+            flash("Location name is required.", "danger")
+            return redirect(url_for("location_new"))
+        
+        # Check for duplicates
+        existing = Location.query.filter_by(name=name).first()
+        if existing:
+            flash(f"Location '{name}' already exists.", "warning")
+            return redirect(url_for("locations"))
+        
+        location = Location(name=name)
+        db.session.add(location)
+        db.session.commit()
+        flash(f"Location '{name}' created successfully.", "success")
+        return redirect(url_for("locations"))
+    return render_template("location_form.html", location=None)
+
+@app.route("/locations/<int:location_id>/edit", methods=["GET", "POST"])
+def location_edit(location_id):
+    location = Location.query.get_or_404(location_id)
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        if not name:
+            flash("Location name is required.", "danger")
+            return redirect(url_for("location_edit", location_id=location_id))
+        
+        # Check for duplicates (excluding current location)
+        existing = Location.query.filter(Location.name == name, Location.id != location_id).first()
+        if existing:
+            flash(f"Location '{name}' already exists.", "warning")
+            return redirect(url_for("location_edit", location_id=location_id))
+        
+        location.name = name
+        db.session.commit()
+        flash(f"Location updated successfully.", "success")
+        return redirect(url_for("locations"))
+    return render_template("location_form.html", location=location)
+
+@app.route("/locations/<int:location_id>/inventory")
+def location_inventory(location_id):
+    location = Location.query.get_or_404(location_id)
+    
+    # Get all items with stock at this location
+    stock_expr = func.sum(
+        case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty)
+    ).label("stock")
+    
+    rows = db.session.query(Item, stock_expr).join(
+        Transaction, Item.sku == Transaction.item_sku
+    ).filter(
+        Transaction.location_id == location_id
+    ).group_by(Item.sku).order_by(Item.category.asc(), Item.name.asc()).all()
+    
+    return render_template("location_inventory.html", location=location, rows=rows)
 
 # ---------- CLI for DB ----------
 @app.cli.command("init-db")

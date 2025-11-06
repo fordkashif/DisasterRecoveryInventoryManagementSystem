@@ -5,9 +5,9 @@
   <div class="row g-3">
     <div class="col-md-6">
       <label class="form-label">Item *</label>
-      <select class="form-select" name="item_id" required>
+      <select class="form-select" name="item_sku" required>
         {% for it in items %}
-          <option value="{{ it.id }}">{{ it.name }} ({{ it.unit }})</option>
+          <option value="{{ it.sku }}">{{ it.name }} [{{ it.sku }}] ({{ it.unit }})</option>
         {% endfor %}
       </select>
     </div>
@@ -16,9 +16,9 @@
       <input class="form-control" type="number" name="qty" required min="1">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Location</label>
-      <select class="form-select" name="location_id">
-        <option value="">—</option>
+      <label class="form-label">Location *</label>
+      <select class="form-select" name="location_id" required>
+        <option value="">Select location...</option>
         {% for loc in locations %}
           <option value="{{ loc.id }}">{{ loc.name }}</option>
         {% endfor %}

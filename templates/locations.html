@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Locations</h3>
+  <a class="btn btn-primary btn-sm" href="{{ url_for('location_new') }}">New Location</a>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Location Name</th>
+      <th>Total Stock (Units)</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for loc in locations %}
+    <tr>
+      <td>{{ loc.name }}</td>
+      <td>{{ stock_by_loc.get(loc.id, 0) }}</td>
+      <td class="text-end">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('location_inventory', location_id=loc.id) }}">View Inventory</a>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('location_edit', location_id=loc.id) }}">Edit</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3" class="text-center py-3">No locations found. Add one to get started.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
