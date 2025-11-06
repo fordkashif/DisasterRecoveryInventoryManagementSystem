@@ -103,6 +103,30 @@ The system implements Flask-Login-based authentication with role-based access co
 - Route protection using @login_required and @role_required decorators
 - Optional location assignment for warehouse staff users
 
+### File Storage and Attachments
+The system supports file attachments for inventory items (e.g., product photos, specification sheets, donor certificates). The file storage architecture is designed for future scalability:
+
+**Current Implementation**: Local file storage in `/uploads/items/` directory
+- Files are stored with UUID-based secure filenames to prevent collisions and security issues
+- Original filenames are preserved in the database for user reference
+- File uploads are validated for type (png, jpg, jpeg, gif, pdf, doc, docx) and size (10MB limit)
+- All file serving is protected by authentication (@login_required)
+- Uploads directory is excluded from version control (.gitignore)
+
+**Modular Architecture**: The `storage_service.py` module provides a `StorageBackend` abstraction layer:
+- `LocalFileStorage`: Current implementation for local filesystem storage
+- `S3Storage`: Placeholder for future AWS S3 integration
+- `NexusStorage`: Placeholder for future Replit Nexus bucket integration
+- Backend selection via `STORAGE_BACKEND` environment variable (defaults to "local")
+
+**Future Migration**: To migrate to cloud storage (S3 or Nexus):
+1. Set `STORAGE_BACKEND=s3` or `STORAGE_BACKEND=nexus` in environment variables
+2. Configure cloud credentials (AWS keys for S3, or Nexus bucket settings)
+3. Implement the respective backend class in `storage_service.py`
+4. No changes to application code required due to abstraction layer
+
+**User Interface**: Items with attachments display a paperclip icon (📎) in the item list, linking directly to the file for download/viewing.
+
 ### Data Import/Export
 The Pandas library is used for CSV import and export functionalities, facilitating bulk data entry, integration with spreadsheet workflows, data backup, and transfer.
 
