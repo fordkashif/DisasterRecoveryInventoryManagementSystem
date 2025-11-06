@@ -132,6 +132,19 @@ def dashboard():
     
     low.sort(key=lambda x: x[2])  # Sort by stock level
 
+    # Inventory by category
+    stock_by_category = {}
+    for item in items:
+        category = item.category or "Uncategorized"
+        total_stock = sum(stock_map.get((item.sku, loc.id), 0) for loc in locations)
+        if category not in stock_by_category:
+            stock_by_category[category] = {"items": 0, "total_units": 0}
+        stock_by_category[category]["items"] += 1
+        stock_by_category[category]["total_units"] += total_stock
+    
+    # Sort categories by name
+    sorted_categories = sorted(stock_by_category.items())
+    
     # Recent transactions
     recent = Transaction.query.order_by(Transaction.created_at.desc()).limit(10).all()
     return render_template("dashboard.html",
@@ -140,7 +153,8 @@ def dashboard():
                            low_stock=low,
                            recent=recent,
                            locations=locations,
-                           stock_by_location=stock_by_location)
+                           stock_by_location=stock_by_location,
+                           stock_by_category=sorted_categories)
 
 @app.route("/items")
 def items():
