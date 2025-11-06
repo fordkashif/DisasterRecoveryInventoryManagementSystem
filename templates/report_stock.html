@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Stock by Item</h3>
+<table class="table table-striped">
+  <thead><tr><th>Category</th><th>Item</th><th>Stock</th><th>Unit</th><th>Min</th></tr></thead>
+  <tbody>
+  {% for item, stock in rows %}
+    <tr>
+      <td>{{ item.category or "—" }}</td>
+      <td>{{ item.name }}</td>
+      <td>{{ stock or 0 }}</td>
+      <td>{{ item.unit }}</td>
+      <td>{{ item.min_qty }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="text-center py-3">No data.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

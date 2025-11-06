@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Record Intake (Donation)</h3>
+<form method="post" class="mt-3">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label">Item *</label>
+      <select class="form-select" name="item_id" required>
+        {% for it in items %}
+          <option value="{{ it.id }}">{{ it.name }} ({{ it.unit }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Quantity *</label>
+      <input class="form-control" type="number" name="qty" required min="1">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Location</label>
+      <select class="form-select" name="location_id">
+        <option value="">—</option>
+        {% for loc in locations %}
+          <option value="{{ loc.id }}">{{ loc.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Donor (name/org)</label>
+      <input class="form-control" name="donor_name" placeholder="e.g., Red Cross, Company X, John Brown">
+    </div>
+    <div class="col-12">
+      <label class="form-label">Notes</label>
+      <textarea class="form-control" name="notes" rows="2"></textarea>
+    </div>
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-primary">Record Intake</button>
+    <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
