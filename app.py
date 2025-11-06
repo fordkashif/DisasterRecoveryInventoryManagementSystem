@@ -22,9 +22,11 @@ class Item(db.Model):
     sku = db.Column(db.String(64), primary_key=True)
     name = db.Column(db.String(200), nullable=False, index=True)
     category = db.Column(db.String(120), nullable=True, index=True)       # e.g., Food, Water, Hygiene, Medical
-    unit = db.Column(db.String(32), nullable=False, default="unit")        # e.g., pcs, kg, L
+    unit = db.Column(db.String(32), nullable=False, default="unit")        # Unit of measure: e.g., pcs, kg, L, boxes
     min_qty = db.Column(db.Integer, nullable=False, default=0)             # threshold for "low stock"
     description = db.Column(db.Text, nullable=True)
+    expiry_date = db.Column(db.Date, nullable=True)                        # Expiry date for perishable items
+    storage_requirements = db.Column(db.Text, nullable=True)               # e.g., "Keep refrigerated", "Store in cool dry place"
 
 class Donor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,6 +67,7 @@ class Transaction(db.Model):
     event_id = db.Column(db.Integer, db.ForeignKey("disaster_event.id"), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.String(200), nullable=True)  # User who created the transaction (for audit)
 
     item = db.relationship("Item")
     location = db.relationship("Location")
@@ -117,9 +120,33 @@ def ensure_seed_data():
 # ---------- Routes ----------
 @app.route("/")
 def dashboard():
-    # KPIs
+    from datetime import datetime, timedelta
+    
+    # KPIs - Inventory
     total_items = Item.query.count()
     locations = Location.query.order_by(Location.name.asc()).all()
+    
+    # KPIs - Operations
+    total_donors = Donor.query.count()
+    total_beneficiaries = Beneficiary.query.count()
+    total_distributors = Distributor.query.count()
+    active_events = DisasterEvent.query.filter_by(status="Active").count()
+    total_events = DisasterEvent.query.count()
+    
+    # Transaction volumes
+    total_intakes = Transaction.query.filter_by(ttype="IN").count()
+    total_distributions = Transaction.query.filter_by(ttype="OUT").count()
+    
+    # Recent activity (last 30 days)
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    recent_intakes = Transaction.query.filter(
+        Transaction.ttype == "IN",
+        Transaction.created_at >= thirty_days_ago
+    ).count()
+    recent_distributions = Transaction.query.filter(
+        Transaction.ttype == "OUT",
+        Transaction.created_at >= thirty_days_ago
+    ).count()
     
     # Stock by location
     stock_by_location = {}
@@ -157,8 +184,40 @@ def dashboard():
     # Sort categories by name
     sorted_categories = sorted(stock_by_category.items())
     
+    # Activity by event
+    event_stats = db.session.query(
+        DisasterEvent.name,
+        DisasterEvent.event_type,
+        func.sum(case((Transaction.ttype == "IN", Transaction.qty), else_=0)).label("total_intake"),
+        func.sum(case((Transaction.ttype == "OUT", Transaction.qty), else_=0)).label("total_distribution")
+    ).join(Transaction, DisasterEvent.id == Transaction.event_id, isouter=False)\
+     .group_by(DisasterEvent.id, DisasterEvent.name, DisasterEvent.event_type)\
+     .order_by(DisasterEvent.id.desc())\
+     .limit(5).all()
+    
+    # Expiring items (within next 30 days)
+    from datetime import date, timedelta
+    today = date.today()
+    thirty_days = today + timedelta(days=30)
+    expiring_items_query = Item.query.filter(
+        Item.expiry_date.isnot(None),
+        Item.expiry_date <= thirty_days,
+        Item.expiry_date >= today
+    ).order_by(Item.expiry_date.asc()).all()
+    
+    # Calculate days remaining for each expiring item
+    expiring_items = []
+    for item in expiring_items_query:
+        days_remaining = (item.expiry_date - today).days
+        expiring_items.append({
+            'item': item,
+            'days_remaining': days_remaining,
+            'urgency': 'critical' if days_remaining <= 7 else 'warning' if days_remaining <= 14 else 'normal'
+        })
+    
     # Recent transactions
-    recent = Transaction.query.order_by(Transaction.created_at.desc()).limit(10).all()
+    recent = Transaction.query.order_by(Transaction.created_at.desc()).limit(15).all()
+    
     return render_template("dashboard.html",
                            total_items=total_items,
                            total_in_stock=total_in_stock,
@@ -166,7 +225,18 @@ def dashboard():
                            recent=recent,
                            locations=locations,
                            stock_by_location=stock_by_location,
-                           stock_by_category=sorted_categories)
+                           stock_by_category=sorted_categories,
+                           total_donors=total_donors,
+                           total_beneficiaries=total_beneficiaries,
+                           total_distributors=total_distributors,
+                           active_events=active_events,
+                           total_events=total_events,
+                           total_intakes=total_intakes,
+                           total_distributions=total_distributions,
+                           recent_intakes=recent_intakes,
+                           recent_distributions=recent_distributions,
+                           event_stats=event_stats,
+                           expiring_items=expiring_items)
 
 @app.route("/items")
 def items():
@@ -193,11 +263,22 @@ def items():
 @app.route("/items/new", methods=["GET", "POST"])
 def item_new():
     if request.method == "POST":
+        from datetime import datetime as dt
         name = request.form["name"].strip()
         category = request.form.get("category", "").strip() or None
         unit = request.form.get("unit", "unit").strip() or "unit"
         min_qty = int(request.form.get("min_qty", "0") or 0)
         description = request.form.get("description", "").strip() or None
+        storage_requirements = request.form.get("storage_requirements", "").strip() or None
+        
+        # Parse expiry date
+        expiry_date = None
+        expiry_str = request.form.get("expiry_date", "").strip()
+        if expiry_str:
+            try:
+                expiry_date = dt.strptime(expiry_str, "%Y-%m-%d").date()
+            except:
+                pass
 
         # Duplicate suggestion by normalized name+category+unit
         norm = normalize_name(name)
@@ -208,7 +289,8 @@ def item_new():
 
         # Generate SKU
         sku = generate_sku()
-        item = Item(sku=sku, name=name, category=category, unit=unit, min_qty=min_qty, description=description)
+        item = Item(sku=sku, name=name, category=category, unit=unit, min_qty=min_qty, 
+                   description=description, expiry_date=expiry_date, storage_requirements=storage_requirements)
         db.session.add(item)
         db.session.commit()
         flash(f"Item created with SKU: {sku}", "success")
@@ -217,6 +299,7 @@ def item_new():
 
 @app.route("/items/<item_sku>/edit", methods=["GET", "POST"])
 def item_edit(item_sku):
+    from datetime import datetime as dt
     item = Item.query.get_or_404(item_sku)
     if request.method == "POST":
         item.name = request.form["name"].strip()
@@ -224,6 +307,18 @@ def item_edit(item_sku):
         item.unit = request.form.get("unit", "unit").strip() or "unit"
         item.min_qty = int(request.form.get("min_qty", "0") or 0)
         item.description = request.form.get("description", "").strip() or None
+        item.storage_requirements = request.form.get("storage_requirements", "").strip() or None
+        
+        # Parse expiry date
+        expiry_str = request.form.get("expiry_date", "").strip()
+        if expiry_str:
+            try:
+                item.expiry_date = dt.strptime(expiry_str, "%Y-%m-%d").date()
+            except:
+                item.expiry_date = None
+        else:
+            item.expiry_date = None
+            
         db.session.commit()
         flash("Item updated.", "success")
         return redirect(url_for("items"))
@@ -246,6 +341,12 @@ def intake():
         
         donor_name = request.form.get("donor_name", "").strip() or None
         event_id = int(request.form["event_id"]) if request.form.get("event_id") else None
+        
+        # Disaster event is required for all intake operations
+        if not event_id:
+            flash("Please select a disaster event for intake.", "danger")
+            return redirect(url_for("intake"))
+        
         donor = None
         if donor_name:
             donor = Donor.query.filter_by(name=donor_name).first()

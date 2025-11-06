@@ -34,14 +34,14 @@
       <input class="form-control" name="donor_name" placeholder="e.g., Red Cross, Company X, John Brown">
     </div>
     <div class="col-md-6">
-      <label class="form-label">Disaster Event</label>
-      <select class="form-select" name="event_id">
-        <option value="">Select event (optional)...</option>
+      <label class="form-label">Disaster Event *</label>
+      <select class="form-select" name="event_id" required>
+        <option value="">Select event...</option>
         {% for ev in events %}
           <option value="{{ ev.id }}">{{ ev.name }} - {{ ev.start_date.strftime("%Y-%m-%d") }}</option>
         {% endfor %}
       </select>
-      <small class="text-muted">Link this intake to a specific disaster event</small>
+      <small class="text-muted">All intake must be linked to an active disaster event</small>
     </div>
     <div class="col-12">
       <label class="form-label">Notes</label>

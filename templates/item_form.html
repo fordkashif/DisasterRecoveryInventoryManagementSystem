@@ -17,12 +17,22 @@
       <input class="form-control" name="category" value="{{ item.category if item else "" }}">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Unit</label>
-      <input class="form-control" name="unit" value="{{ item.unit if item else "unit" }}">
+      <label class="form-label">Unit of Measure *</label>
+      <input class="form-control" name="unit" value="{{ item.unit if item else "unit" }}" placeholder="e.g., kg, L, pcs, boxes">
+      <small class="text-muted">e.g., kg, L, pcs, boxes</small>
     </div>
     <div class="col-md-3">
       <label class="form-label">Min Qty</label>
       <input class="form-control" type="number" name="min_qty" value="{{ item.min_qty if item else 0 }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Expiry Date</label>
+      <input class="form-control" type="date" name="expiry_date" value="{{ item.expiry_date.isoformat() if item and item.expiry_date else "" }}">
+      <small class="text-muted">For perishable items</small>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Storage Requirements</label>
+      <textarea class="form-control" name="storage_requirements" rows="2" placeholder="e.g., Keep refrigerated, Store in cool dry place, Avoid direct sunlight">{{ item.storage_requirements if item else "" }}</textarea>
     </div>
     <div class="col-12">
       <label class="form-label">Description</label>

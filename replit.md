@@ -1,144 +1,125 @@
 # GOJ Relief Inventory System
 
 ## Overview
-
-This is a disaster relief inventory management system built for the Government of Jamaica (GOJ). The application tracks relief supplies across multiple locations (shelters, depots, parishes), manages donations from donors, and records distributions to beneficiaries. The system provides real-time stock monitoring, low-stock alerts, and comprehensive transaction tracking to ensure effective disaster response operations.
+The GOJ Relief Inventory System is an inventory management solution designed for the Government of Jamaica to track and manage disaster relief supplies. It supports multiple locations (shelters, depots, parishes), handles donations, and records distributions to beneficiaries. The system provides real-time stock monitoring, low-stock alerts, and comprehensive transaction tracking to enhance the efficiency of disaster response operations. Its core purpose is to ensure effective and accountable management of relief efforts.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
+
+## User Roles and Access Levels
+
+The system is designed to support multiple user types with different responsibilities:
+
+### Warehouse Staff
+**Primary Responsibilities**: Day-to-day inventory operations
+- Record incoming relief supplies (intake transactions)
+- Process distributions to beneficiaries
+- Update item information including expiry dates and storage requirements
+- Monitor stock levels at their assigned location
+- Alert managers to low stock or expiring items
+
+**Key Features Used**: Intake forms, Distribution forms, Item management, Location-specific inventory views
+
+### Field Distribution Personnel
+**Primary Responsibilities**: On-site distribution of relief supplies
+- Execute distributions in the field using mobile devices
+- Record beneficiary information
+- Link distributions to disaster events for accountability
+- Track distributor assignments for audit purposes
+
+**Key Features Used**: Distribution forms, Mobile-friendly interface, Disaster event tracking
+
+### Inventory Managers
+**Primary Responsibilities**: Stock oversight and operational planning
+- Monitor stock levels across all locations
+- Manage low stock alerts and reorder decisions
+- Track item expiry dates and storage compliance
+- Coordinate transfers between locations
+- Oversee distributor assignments and performance
+- Manage disaster event operations
+
+**Key Features Used**: Dashboard analytics, Low stock alerts, Expiring items reports, Location management, Distributor management, Disaster event management
+
+### Executive Management
+**Primary Responsibilities**: Strategic oversight and decision-making
+- View high-level operational metrics and KPIs
+- Monitor disaster event response effectiveness
+- Track donor contributions and beneficiary reach
+- Assess resource allocation across locations
+- Review transaction volumes and trends
+- Make strategic decisions based on comprehensive data
+
+**Key Features Used**: Executive dashboard with KPIs, Activity by event reports, Transaction analytics, Inventory by category summaries
+
+### System Administrators
+**Primary Responsibilities**: System configuration and maintenance
+- Configure locations (depots, shelters, parishes)
+- Set up disaster events and manage event lifecycle
+- Manage user accounts and permissions (when authentication is implemented)
+- Maintain item catalog and categories
+- Configure system settings and integrations
+- Ensure data integrity and system availability
+
+**Key Features Used**: All administrative interfaces, Location management, Disaster event management, Item configuration, Database management tools
+
+### Auditors
+**Primary Responsibilities**: Compliance and accountability verification
+- Review complete transaction history with timestamps
+- Verify disaster event linkages for funding accountability
+- Track distributor assignments for all distributions
+- Audit donor contributions and beneficiary distributions
+- Generate compliance reports for government oversight
+- Investigate discrepancies in inventory records
+
+**Key Features Used**: Transaction history with audit trail (created_by field), Disaster event reports, Distributor tracking, Comprehensive transaction logs, Export capabilities for external auditing
+
+**Authentication Status**: No authentication system is currently implemented. The application assumes deployment in a trusted environment or behind external authentication (VPN, reverse proxy). Future enhancement: Role-based access control (RBAC) should be implemented to enforce these user role distinctions with appropriate permissions for each role level.
 
 ## System Architecture
 
 ### Application Framework
-**Technology**: Flask (Python web framework)
-**Rationale**: Flask provides a lightweight, flexible foundation for building web applications quickly. It's well-suited for this relief inventory system because it allows rapid development while maintaining simplicity. The framework's minimal overhead makes it ideal for deployment in resource-constrained environments that might be common during disaster response scenarios.
+The system is built using Flask (Python web framework) for its lightweight and flexible nature, enabling rapid development and deployment, especially in resource-constrained disaster environments.
 
 ### Data Model
-**Solution**: SQLAlchemy ORM with relational database design
-**Database**: SQLite (development) with PostgreSQL support (production via DATABASE_URL environment variable)
-
-The data model consists of seven core entities:
-- **Items**: Relief supplies with auto-generated SKU (format: ITM-XXXXXX), category, unit of measurement, minimum quantity thresholds, and description field
-- **Locations**: Physical sites (depots, shelters, parishes) where inventory is stored
-- **Donors**: Organizations or individuals providing donations
-- **Beneficiaries**: Recipients of relief supplies (households, individuals, shelters)
-- **Distributors**: Personnel who perform distributions (name, contact, organization)
-- **DisasterEvents**: Named disaster events (e.g., Hurricane Matthew 2024) with event type (hurricane, flood, earthquake, etc.), start/end dates, description, and status (active/closed)
-- **Transactions**: Double-entry-style records tracking all intake ("IN") and distribution ("OUT") movements, optionally linked to disaster events
-
-**Design Decision**: The Transaction model uses a type field ("IN"/"OUT") rather than separate Donation/Distribution tables. This simplifies querying stock levels by summing transactions and provides a single audit trail. Stock quantities are calculated dynamically from transactions rather than stored denormalized, ensuring data consistency.
-
-**Item SKU System**: Items use auto-generated SKUs as primary keys instead of numeric IDs. SKUs are generated using cryptographically secure random tokens (format: ITM-XXXXXX) with collision detection to ensure uniqueness. This provides human-readable identifiers suitable for relief operations.
-
-**Distributor Tracking**: Distribution transactions (OUT) can be linked to a distributor who performed the distribution. This enables accountability tracking and helps organizations monitor which personnel are handling relief supply distributions.
-
-**Disaster Event Management**: The system tracks named disaster events (hurricanes, floods, earthquakes, etc.) with temporal boundaries and status tracking. Transactions can be optionally linked to specific disaster events, enabling:
-- Event-specific reporting and analysis
-- Historical tracking of relief responses
-- Resource allocation accountability per disaster
-- Temporal filtering of transactions by event
-
-This feature is particularly valuable for multi-disaster scenarios where relief operations may overlap or when analyzing historical response effectiveness.
+The system utilizes SQLAlchemy ORM with a relational database design. SQLite is used for development, with PostgreSQL support for production environments via the `DATABASE_URL` environment variable. The data model includes core entities such as Items, Locations, Donors, Beneficiaries, Distributors, DisasterEvents, and Transactions. Transactions are designed as double-entry records ("IN"/"OUT") to simplify stock calculation and maintain a single audit trail. Items feature auto-generated SKUs (e.g., ITM-XXXXXX), unit of measure, expiry dates for perishable goods, and storage requirements. Distributors are tracked for accountability in distribution transactions. Disaster events are managed with types, dates, and statuses, allowing transaction linking for event-specific reporting. An audit trail (`created_by` field) is included in transactions for accountability.
 
 ### Frontend Architecture
-**Technology**: Server-side rendered HTML templates with Bootstrap 5 and Bootstrap Icons
-**Rationale**: Traditional server-side rendering eliminates the complexity of a separate frontend build process and JavaScript framework. This approach prioritizes:
-- Quick deployment without build steps
-- Minimal client-side dependencies (works on low-bandwidth connections)
-- Accessibility for relief workers with varying technical expertise
-- No API maintenance overhead
-
-Bootstrap provides responsive, mobile-friendly layouts essential for field workers using tablets or phones in emergency situations.
-
-**GOJ Branding**: The application features official Government of Jamaica theming with:
-- **Primary color**: GOJ Green (#009639) - used in navigation, headers, and action buttons
-- **Accent color**: GOJ Gold (#FDB913) - used for highlights and secondary elements
-- **Official logo**: Jamaican coat of arms displayed in the navigation bar with the national motto "Out of Many, One People"
-- **Typography**: Clean, professional presentation suitable for government operations
-- **Icons**: Bootstrap Icons throughout the interface for improved navigation and visual clarity
-
-This branding establishes official authenticity and professional credibility essential for government disaster response operations.
+The frontend uses server-side rendered HTML templates with Bootstrap 5 and Bootstrap Icons. This approach prioritizes quick deployment, minimal client-side dependencies, accessibility, and mobile-friendliness for field workers. The application incorporates official Government of Jamaica branding, including GOJ Green and Gold colors, the Jamaican coat of arms, and clean typography.
 
 ### Stock Calculation Strategy
-**Approach**: Dynamic aggregation from transactions
-Stock levels are computed on-demand by summing transactions:
-- IN transactions add to stock
-- OUT transactions subtract from stock
-- Filtered by location and item
-
-**Pros**: 
-- Guaranteed data consistency (no sync issues)
-- Complete audit trail preserved
-- No complex update logic required
-
-**Cons**: 
-- Query performance may degrade with very large transaction volumes
-- More complex aggregation queries
-
-**Alternatives Considered**: Storing current stock as a denormalized field on a separate Inventory table would improve read performance but introduces consistency risks and requires more complex transaction handling.
+Stock levels are dynamically aggregated on-demand from transaction records, summing "IN" and subtracting "OUT" transactions, filtered by location and item. This ensures data consistency and a complete audit trail.
 
 ### Dashboard Features
-The dashboard provides at-a-glance visibility into the relief inventory system:
-
-**Key Performance Indicators (KPIs)**:
-- Total unique items in the catalog
-- Total units in stock across all locations
-- Count of items below minimum stock threshold
-
-**Inventory by Category**: Displays aggregated inventory statistics grouped by item category (Food, Water, Hygiene, Medical, etc.), showing:
-- Number of unique items per category
-- Total units in stock per category
-- Sorted alphabetically for quick reference
-
-**Stock by Location**: Shows total inventory units at each depot/shelter with quick access to location-specific inventory details.
-
-**Low Stock Alerts**: Real-time monitoring of items below minimum quantity thresholds, broken down by location to enable targeted restocking.
-
-**Recent Transactions**: Displays the 10 most recent intake and distribution activities, including distributor information for distributions to track accountability.
+The dashboard provides a comprehensive overview with KPIs (total items, total units, low stock items), inventory by category, stock by location, low stock alerts, recent transactions, expiring items alerts (with color-coded urgency), activity by disaster event, operations metrics, and transaction analytics.
 
 ### Authentication
-**Status**: Not implemented
-**Rationale**: The current implementation assumes deployment in a trusted environment or behind external authentication (e.g., VPN, reverse proxy with auth). This simplifies initial deployment during emergency response when rapid setup is critical.
-
-**Future Consideration**: Role-based access control would be beneficial for production deployments to distinguish between warehouse managers, field workers, and administrators.
+Authentication is currently not implemented, assuming deployment in a trusted environment or behind external authentication. Role-based access control is a planned future enhancement.
 
 ### Data Import/Export
-**Technology**: Pandas library for CSV handling
-**Rationale**: Relief operations often require bulk data entry and reporting. CSV import/export enables:
-- Rapid initial setup of item catalogs
-- Integration with spreadsheet-based workflows common in relief organizations
-- Data backup and transfer between systems
-- Offline data preparation
+The Pandas library is used for CSV import and export functionalities, facilitating bulk data entry, integration with spreadsheet workflows, data backup, and transfer.
 
 ### Session Management
-**Implementation**: Flask's built-in session handling with secret key
-**Security**: Secret key loaded from environment variable (SECRET_KEY) with fallback to development default
+Flask's built-in session handling is utilized, with a secret key loaded from an environment variable for security.
 
 ## External Dependencies
 
 ### Core Framework Dependencies
-- **Flask 3.0.3**: Web application framework
-- **Flask-SQLAlchemy 3.1.1**: ORM integration for Flask
-- **SQLAlchemy 2.0.32**: Database abstraction and ORM
+-   **Flask**: 3.0.3
+-   **Flask-SQLAlchemy**: 3.1.1
+-   **SQLAlchemy**: 2.0.32
 
 ### Database Drivers
-- **psycopg2-binary**: PostgreSQL adapter for production deployments
-- **SQLite**: Built-in Python database for development (no separate installation required)
+-   **psycopg2-binary**: For PostgreSQL production deployments.
+-   **SQLite**: Built-in for development.
 
 ### Data Processing
-- **Pandas 2.2.2**: CSV import/export and data manipulation
+-   **Pandas**: 2.2.2 (for CSV handling).
 
 ### Configuration Management
-- **python-dotenv 1.0.1**: Environment variable management for configuration
+-   **python-dotenv**: 1.0.1 (for environment variables).
 
 ### Frontend Dependencies (CDN-delivered)
-- **Bootstrap 5.3.3**: CSS framework for responsive UI (loaded from CDN, no local installation)
-- **Bootstrap Icons 1.11.3**: Icon library for enhanced user interface (loaded from CDN, no local installation)
+-   **Bootstrap**: 5.3.3
+-   **Bootstrap Icons**: 1.11.3
 
-### Database Configuration
-The application supports multiple database backends via the DATABASE_URL environment variable:
-- Development: SQLite file-based database (db.sqlite3)
-- Production: PostgreSQL via connection string
-
-No external APIs or third-party services are currently integrated. The system is designed to operate independently, which is critical for disaster scenarios where internet connectivity may be unreliable.
+The system supports database configuration via the `DATABASE_URL` environment variable. No external APIs or third-party services are currently integrated, ensuring independent operation crucial during disaster scenarios.
