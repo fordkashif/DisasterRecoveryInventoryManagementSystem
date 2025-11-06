@@ -1,7 +1,7 @@
-# GOJ Relief Inventory System - Deployment Guide
+# DRIMS - Deployment Guide
 
 ## Overview
-This guide covers deploying the GOJ Relief Inventory System on Red Hat Enterprise Linux (RHEL) or compatible systems.
+This guide covers deploying the Disaster Relief Inventory Management System (DRIMS) on Red Hat Enterprise Linux (RHEL) or compatible systems.
 
 ## System Requirements
 
@@ -42,9 +42,9 @@ sudo systemctl start postgresql
 
 # Create database and user
 sudo -u postgres psql << EOF
-CREATE DATABASE relief_inventory;
-CREATE USER relief_user WITH PASSWORD 'CHANGE_THIS_PASSWORD';
-GRANT ALL PRIVILEGES ON DATABASE relief_inventory TO relief_user;
+CREATE DATABASE drims_db;
+CREATE USER drims_user WITH PASSWORD 'CHANGE_THIS_PASSWORD';
+GRANT ALL PRIVILEGES ON DATABASE drims_db TO drims_user;
 \q
 EOF
 ```
@@ -53,20 +53,20 @@ EOF
 
 ```bash
 # Create application directory
-sudo mkdir -p /opt/goj-relief
-cd /opt/goj-relief
+sudo mkdir -p /opt/drims
+cd /opt/drims
 
 # Clone repository (adjust URL to your Git server)
-sudo git clone https://github.com/yourusername/goj-relief-inventory.git .
+sudo git clone https://github.com/yourusername/drims.git .
 
 # Create application user
-sudo useradd -r -s /bin/false relief-app
+sudo useradd -r -s /bin/false drims-app
 
 # Set ownership
-sudo chown -R relief-app:relief-app /opt/goj-relief
+sudo chown -R drims-app:drims-app /opt/drims
 
 # Switch to application user
-sudo -u relief-app bash
+sudo -u drims-app bash
 
 # Create virtual environment
 python3.11 -m venv venv
@@ -81,10 +81,10 @@ pip install gunicorn psycopg2-binary
 ### 4. Configure Environment
 
 ```bash
-# Create .env file (as relief-app user)
+# Create .env file (as drims-app user)
 cat > .env << 'EOF'
 SECRET_KEY=GENERATE_RANDOM_KEY_HERE
-DATABASE_URL=postgresql://relief_user:CHANGE_THIS_PASSWORD@localhost/relief_inventory
+DATABASE_URL=postgresql://drims_user:CHANGE_THIS_PASSWORD@localhost/drims_db
 FLASK_ENV=production
 EOF
 
@@ -99,7 +99,7 @@ chmod 600 .env
 ### 5. Initialize Database
 
 ```bash
-# Still as relief-app user with venv activated
+# Still as drims-app user with venv activated
 export $(cat .env | xargs)
 
 # Initialize database tables
@@ -115,29 +115,29 @@ Exit back to root user, then create service file:
 
 ```bash
 # Create service file
-sudo nano /etc/systemd/system/relief-inventory.service
+sudo nano /etc/systemd/system/drims.service
 ```
 
 Add the following content:
 
 ```ini
 [Unit]
-Description=GOJ Relief Inventory System
+Description=Disaster Relief Inventory Management System (DRIMS)
 After=network.target postgresql.service
 
 [Service]
 Type=notify
-User=relief-app
-Group=relief-app
-WorkingDirectory=/opt/goj-relief
-Environment="PATH=/opt/goj-relief/venv/bin"
-EnvironmentFile=/opt/goj-relief/.env
-ExecStart=/opt/goj-relief/venv/bin/gunicorn \
+User=drims-app
+Group=drims-app
+WorkingDirectory=/opt/drims
+Environment="PATH=/opt/drims/venv/bin"
+EnvironmentFile=/opt/drims/.env
+ExecStart=/opt/drims/venv/bin/gunicorn \
     --bind 0.0.0.0:5000 \
     --workers 4 \
     --timeout 120 \
-    --access-logfile /var/log/relief-inventory/access.log \
-    --error-logfile /var/log/relief-inventory/error.log \
+    --access-logfile /var/log/drims/access.log \
+    --error-logfile /var/log/drims/error.log \
     app:app
 Restart=always
 RestartSec=10
@@ -149,23 +149,23 @@ WantedBy=multi-user.target
 Create log directory:
 
 ```bash
-sudo mkdir -p /var/log/relief-inventory
-sudo chown relief-app:relief-app /var/log/relief-inventory
+sudo mkdir -p /var/log/drims
+sudo chown drims-app:drims-app /var/log/drims
 ```
 
 Enable and start service:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable relief-inventory
-sudo systemctl start relief-inventory
-sudo systemctl status relief-inventory
+sudo systemctl enable drims
+sudo systemctl start drims
+sudo systemctl status drims
 ```
 
 ### 7. Configure Nginx Reverse Proxy
 
 ```bash
-sudo nano /etc/nginx/conf.d/relief-inventory.conf
+sudo nano /etc/nginx/conf.d/drims.conf
 ```
 
 Add the following:
@@ -173,7 +173,7 @@ Add the following:
 ```nginx
 server {
     listen 80;
-    server_name relief.gov.jm;  # Change to your domain
+    server_name drims.yourdomain.com;  # Change to your domain
 
     client_max_body_size 10M;
 
@@ -186,7 +186,7 @@ server {
     }
 
     location /static {
-        alias /opt/goj-relief/static;
+        alias /opt/drims/static;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -220,7 +220,7 @@ Install certbot for Let's Encrypt:
 
 ```bash
 sudo dnf install certbot python3-certbot-nginx
-sudo certbot --nginx -d relief.gov.jm
+sudo certbot --nginx -d drims.yourdomain.com
 ```
 
 ## Post-Deployment
@@ -229,8 +229,8 @@ sudo certbot --nginx -d relief.gov.jm
 
 ```bash
 # SSH into server
-cd /opt/goj-relief
-sudo -u relief-app bash
+cd /opt/drims
+sudo -u drims-app bash
 source venv/bin/activate
 export $(cat .env | xargs)
 
@@ -242,33 +242,33 @@ flask create-user
 
 ```bash
 # Check application logs
-sudo journalctl -u relief-inventory -f
+sudo journalctl -u drims -f
 
 # Check Nginx logs
 sudo tail -f /var/log/nginx/access.log
 sudo tail -f /var/log/nginx/error.log
 
 # Check application-specific logs
-sudo tail -f /var/log/relief-inventory/access.log
-sudo tail -f /var/log/relief-inventory/error.log
+sudo tail -f /var/log/drims/access.log
+sudo tail -f /var/log/drims/error.log
 ```
 
 ### Backup Strategy
 
-Create backup script `/opt/backup-relief.sh`:
+Create backup script `/opt/backup-drims.sh`:
 
 ```bash
 #!/bin/bash
-BACKUP_DIR="/opt/backups/relief-inventory"
+BACKUP_DIR="/opt/backups/drims"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p $BACKUP_DIR
 
 # Backup database
-sudo -u postgres pg_dump relief_inventory | gzip > $BACKUP_DIR/db_$DATE.sql.gz
+sudo -u postgres pg_dump drims_db | gzip > $BACKUP_DIR/db_$DATE.sql.gz
 
 # Backup uploaded files (if any)
-tar -czf $BACKUP_DIR/files_$DATE.tar.gz /opt/goj-relief/static/uploads 2>/dev/null
+tar -czf $BACKUP_DIR/files_$DATE.tar.gz /opt/drims/static/uploads 2>/dev/null
 
 # Keep only last 30 days of backups
 find $BACKUP_DIR -type f -mtime +30 -delete
@@ -279,26 +279,26 @@ echo "Backup completed: $DATE"
 Make executable and add to cron:
 
 ```bash
-sudo chmod +x /opt/backup-relief.sh
+sudo chmod +x /opt/backup-drims.sh
 sudo crontab -e
-# Add: 0 2 * * * /opt/backup-relief.sh
+# Add: 0 2 * * * /opt/backup-drims.sh
 ```
 
 ### Updates and Maintenance
 
 ```bash
 # Pull latest changes
-cd /opt/goj-relief
-sudo -u relief-app git pull origin main
+cd /opt/drims
+sudo -u drims-app git pull origin main
 
 # Activate venv and update dependencies
-sudo -u relief-app bash
+sudo -u drims-app bash
 source venv/bin/activate
 pip install -r requirements.txt
 
 # Restart service
 exit
-sudo systemctl restart relief-inventory
+sudo systemctl restart drims
 ```
 
 ## Security Checklist
@@ -318,7 +318,7 @@ sudo systemctl restart relief-inventory
 
 ### Service won't start
 ```bash
-sudo journalctl -u relief-inventory -n 50
+sudo journalctl -u drims -n 50
 ```
 
 ### Database connection issues
@@ -330,8 +330,8 @@ sudo -u postgres psql
 
 ### Permission issues
 ```bash
-sudo chown -R relief-app:relief-app /opt/goj-relief
-sudo chmod 600 /opt/goj-relief/.env
+sudo chown -R drims-app:drims-app /opt/drims
+sudo chmod 600 /opt/drims/.env
 ```
 
 ## Support

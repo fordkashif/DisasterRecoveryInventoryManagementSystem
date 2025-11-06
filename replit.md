@@ -1,7 +1,7 @@
-# GOJ Relief Inventory System
+# Disaster Relief Inventory Management System (DRIMS)
 
 ## Overview
-The GOJ Relief Inventory System is an inventory management solution designed for the Government of Jamaica to track and manage disaster relief supplies. It supports multiple locations (shelters, depots, parishes), handles donations, and records distributions to beneficiaries. The system provides real-time stock monitoring, low-stock alerts, and comprehensive transaction tracking to enhance the efficiency of disaster response operations. Its core purpose is to ensure effective and accountable management of relief efforts.
+The Disaster Relief Inventory Management System (DRIMS) is an inventory management solution designed to track and manage disaster relief supplies. It supports multiple locations (shelters, depots, parishes), handles donations, and records distributions to beneficiaries. The system provides real-time stock monitoring, low-stock alerts, and comprehensive transaction tracking to enhance the efficiency of disaster response operations. Its core purpose is to ensure effective and accountable management of relief efforts.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -102,6 +102,71 @@ The system implements Flask-Login-based authentication with role-based access co
 - CLI commands (flask create-admin, flask create-user) for user management
 - Route protection using @login_required and @role_required decorators
 - Optional location assignment for warehouse staff users
+
+### Future Authentication: Keycloak & LDAP Compatibility
+
+The system is designed to support enterprise authentication via Keycloak and LDAP integration in the future. This section outlines the migration path and architectural considerations.
+
+**Current Implementation**: Flask-Login with database-backed user accounts
+- User credentials stored in PostgreSQL with hashed passwords
+- Role-based access control (RBAC) with six distinct roles
+- Session-based authentication with secure cookie management
+
+**Future Migration Path**: Keycloak with LDAP Federation
+
+**Architecture Overview**:
+1. **DRIMS ↔ Keycloak (OpenID Connect/OIDC)**: DRIMS authenticates users via Keycloak using OAuth2/OIDC
+2. **Keycloak ↔ LDAP (User Federation)**: Keycloak connects to existing LDAP/Active Directory
+3. **Result**: Users in LDAP/AD can authenticate through Keycloak to access DRIMS with modern SSO
+
+**Recommended Integration Library**: **Authlib** (avoid deprecated flask-oidc)
+- Active maintenance and Flask 3.x compatibility
+- Full OpenID Connect support
+- Token validation and refresh handling
+- Install: `pip install authlib`
+
+**Migration Steps** (when ready to implement):
+1. **Install Keycloak** (version 23+) in production environment
+2. **Configure LDAP User Federation** in Keycloak:
+   - User Federation → Add LDAP Provider
+   - Configure connection URL, bind credentials, users DN
+   - Enable periodic synchronization
+   - Map LDAP attributes (username, email, groups)
+3. **Create Keycloak Realm and Client** for DRIMS:
+   - Client Protocol: openid-connect
+   - Access Type: confidential
+   - Valid Redirect URIs: https://your-drims-domain.com/callback
+   - Configure role mappings from LDAP groups
+4. **Update DRIMS Authentication**:
+   - Replace Flask-Login with Authlib OAuth client
+   - Update login routes to redirect to Keycloak
+   - Implement callback route for token handling
+   - Validate JWT tokens for API requests
+5. **Map Keycloak Roles to DRIMS Roles**:
+   - Configure role mappers in Keycloak
+   - Map LDAP groups → Keycloak roles → DRIMS roles
+   - Maintain current six-role structure (ADMIN, INVENTORY_MANAGER, etc.)
+
+**Key Compatibility Considerations**:
+- Current user model fields (email, name, role) align with standard OIDC claims
+- Role-based access control logic (@role_required decorators) can remain unchanged
+- User session management can continue using Flask sessions with Authlib OAuth tokens stored in session
+- Alternatively, can implement pure JWT token-based authentication for API access
+- Audit trail (created_by field) will use OIDC userinfo claims from token
+- Flask-Login can be retained with user data populated from Keycloak tokens instead of database
+
+**Environment Variables** (for future implementation):
+```
+KEYCLOAK_URL=https://keycloak.example.com
+KEYCLOAK_REALM=drims
+KEYCLOAK_CLIENT_ID=drims-app
+KEYCLOAK_CLIENT_SECRET=<secret>
+```
+
+**Resources**:
+- Authlib Documentation: https://docs.authlib.org/en/latest/client/flask.html
+- Keycloak LDAP Federation: https://www.keycloak.org/docs/latest/server_admin/#_ldap
+- python-keycloak Library: https://pypi.org/project/python-keycloak/
 
 ### File Storage and Attachments
 The system supports file attachments for inventory items (e.g., product photos, specification sheets, donor certificates). The file storage architecture is designed for future scalability:

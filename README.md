@@ -1,6 +1,6 @@
-# GOJ Relief Inventory System
+# Disaster Relief Inventory Management System (DRIMS)
 
-A comprehensive inventory management system designed for the Government of Jamaica to track and manage disaster relief supplies with location-based inventory tracking, role-based access control, and real-time analytics.
+A comprehensive inventory management system designed to track and manage disaster relief supplies with location-based inventory tracking, role-based access control, and real-time analytics.
 
 ## Features
 
@@ -83,8 +83,8 @@ A comprehensive inventory management system designed for the Government of Jamai
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/goj-relief-inventory.git
-   cd goj-relief-inventory
+   git clone https://github.com/yourusername/drims.git
+   cd drims
    ```
 
 2. **Create virtual environment:**
@@ -165,7 +165,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying to Red
 
 Key steps:
 1. Install PostgreSQL and Python 3.11
-2. Clone repository to `/opt/goj-relief`
+2. Clone repository to `/opt/drims`
 3. Set up virtual environment and install dependencies
 4. Configure PostgreSQL database
 5. Create systemd service
@@ -179,7 +179,7 @@ For production, use PostgreSQL instead of SQLite:
 
 ```bash
 # Set DATABASE_URL in .env
-DATABASE_URL=postgresql://username:password@localhost/relief_inventory
+DATABASE_URL=postgresql://drims_user:password@localhost/drims_db
 ```
 
 ### Gunicorn (Production WSGI Server)
@@ -229,7 +229,7 @@ python -c "from app import app, db; app.app_context().push(); db.create_all()"
 ## Project Structure
 
 ```
-goj-relief-inventory/
+drims/
 ├── app.py                  # Main application file
 ├── templates/              # HTML templates
 │   ├── base.html          # Base template with navigation
