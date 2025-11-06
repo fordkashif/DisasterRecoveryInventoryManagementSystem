@@ -9,6 +9,7 @@ from functools import wraps
 from urllib.parse import urlparse, urljoin
 import pandas as pd
 import secrets
+from storage_service import get_storage, allowed_file, validate_file_size
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
@@ -422,6 +423,24 @@ def item_new():
         sku = generate_sku()
         item = Item(sku=sku, name=name, category=category, unit=unit, min_qty=min_qty, 
                    description=description, expiry_date=expiry_date, storage_requirements=storage_requirements)
+        
+        # Handle file upload
+        if "attachment" in request.files:
+            file = request.files["attachment"]
+            if file and file.filename and allowed_file(file.filename):
+                if validate_file_size(file):
+                    try:
+                        storage = get_storage()
+                        storage_path, original_filename = storage.save_file(file, file.filename, folder="items")
+                        item.attachment_path = storage_path
+                        item.attachment_filename = original_filename
+                    except Exception as e:
+                        flash(f"Error uploading file: {str(e)}", "warning")
+                else:
+                    flash("File size exceeds 10MB limit.", "warning")
+            elif file and file.filename:
+                flash("File type not allowed. Please upload PNG, JPG, PDF, DOC, DOCX, TXT, CSV, or XLSX files.", "warning")
+        
         db.session.add(item)
         db.session.commit()
         flash(f"Item created with SKU: {sku}", "success")
@@ -450,6 +469,27 @@ def item_edit(item_sku):
                 item.expiry_date = None
         else:
             item.expiry_date = None
+        
+        # Handle file upload
+        if "attachment" in request.files:
+            file = request.files["attachment"]
+            if file and file.filename and allowed_file(file.filename):
+                if validate_file_size(file):
+                    try:
+                        storage = get_storage()
+                        # Delete old file if exists
+                        if item.attachment_path:
+                            storage.delete_file(item.attachment_path)
+                        # Save new file
+                        storage_path, original_filename = storage.save_file(file, file.filename, folder="items")
+                        item.attachment_path = storage_path
+                        item.attachment_filename = original_filename
+                    except Exception as e:
+                        flash(f"Error uploading file: {str(e)}", "warning")
+                else:
+                    flash("File size exceeds 10MB limit.", "warning")
+            elif file and file.filename:
+                flash("File type not allowed. Please upload PNG, JPG, PDF, DOC, DOCX, TXT, CSV, or XLSX files.", "warning")
             
         db.session.commit()
         flash("Item updated.", "success")
@@ -954,6 +994,21 @@ def create_user():
     print(f"\n✓ User '{full_name}' created successfully!")
     print(f"  Email: {email}")
     print(f"  Role: {role}\n")
+
+@app.route("/uploads/<path:file_path>")
+@login_required
+def serve_upload(file_path):
+    """Serve uploaded files with authentication"""
+    try:
+        storage = get_storage()
+        full_path = storage.get_file_path(file_path)
+        if not storage.file_exists(file_path):
+            flash("File not found.", "error")
+            return redirect(url_for("items"))
+        return send_file(full_path)
+    except Exception as e:
+        flash(f"Error accessing file: {str(e)}", "error")
+        return redirect(url_for("items"))
 
 if __name__ == "__main__":
     with app.app_context():
