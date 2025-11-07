@@ -17,12 +17,12 @@
                 <div class="btn-group btn-group-sm" role="group">
                   <a href="{{ url_for('transactions', sort_by='created_at', order='desc') }}" 
                      class="btn btn-outline-secondary {% if order == 'desc' %}active{% endif %}" 
-                     title="Newest First">
+                     title="Newest">
                     <i class="bi bi-arrow-down"></i>
                   </a>
                   <a href="{{ url_for('transactions', sort_by='created_at', order='asc') }}" 
                      class="btn btn-outline-secondary {% if order == 'asc' %}active{% endif %}" 
-                     title="Oldest First">
+                     title="Oldest">
                     <i class="bi bi-arrow-up"></i>
                   </a>
                 </div>
