@@ -42,22 +42,43 @@
             <div class="mb-3">
               <label class="form-label">Items / Needs List <span class="text-danger">*</span></label>
               <div id="items-container">
-                <div class="row mb-2 item-row">
-                  <div class="col-md-8">
-                    <select name="item_sku_0" class="form-select item-select" required>
-                      <option value="">Select Item</option>
-                      {% for item in items %}
-                      <option value="{{ item.sku }}">{{ item.name }} (SKU: {{ item.sku }})</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <div class="col-md-3">
-                    <input type="number" name="item_qty_0" class="form-control" placeholder="Quantity" min="1" required>
-                  </div>
-                  <div class="col-md-1">
-                    <button type="button" class="btn btn-outline-danger remove-item-btn" onclick="removeItem(this)" disabled>
-                      <i class="bi bi-trash"></i>
-                    </button>
+                <div class="card mb-3 item-row">
+                  <div class="card-body">
+                    <div class="row mb-2">
+                      <div class="col-md-11">
+                        <label class="form-label fw-bold">Select Item</label>
+                        <select name="item_sku_0" class="form-select item-select" onchange="showStockInfo(this, 0)" required>
+                          <option value="">-- Select Item --</option>
+                          {% for item in items %}
+                          <option value="{{ item.sku }}">{{ item.name }} (SKU: {{ item.sku }})</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-danger remove-item-btn" onclick="removeItem(this)" disabled>
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div class="stock-info-0 stock-info" style="display:none;">
+                      <div class="alert alert-info py-2 mb-2">
+                        <strong><i class="bi bi-box-seam me-1"></i>Stock by Depot:</strong>
+                        <div class="stock-details mt-1"></div>
+                      </div>
+                      
+                      <div class="row">
+                        <div class="col-md-6">
+                          <label class="form-label">Requested Quantity <span class="text-danger">*</span></label>
+                          <input type="number" name="item_requested_0" class="form-control" placeholder="Enter requested quantity" min="1" required>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Allocated Quantity <span class="text-danger">*</span></label>
+                          <input type="number" name="item_allocated_0" class="form-control" placeholder="Enter quantity to fulfill" min="0" required>
+                          <small class="text-muted">Must be ≤ requested and ≤ total available</small>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -93,8 +114,8 @@
           <ol class="small">
             <li>Select the distributor who will receive this package</li>
             <li>Add items from the needs list with quantities</li>
-            <li>The system will automatically check stock availability</li>
-            <li>If stock is insufficient, the package will be marked as "Partial"</li>
+            <li>View stock availability by depot for each item</li>
+            <li>Manually set the allocated quantity based on available stock</li>
             <li>Partial packages require distributor acceptance before approval</li>
             <li>Once approved, the package will be auto-assigned to the nearest warehouse</li>
           </ol>
@@ -107,29 +128,98 @@
 <script>
 let itemIndex = 1;
 
+// Stock data from backend
+const stockData = {
+  {% for item in items %}
+  "{{ item.sku }}": {
+    name: "{{ item.name }}",
+    depots: {
+      {% for location in locations %}
+      "{{ location.name }}": {{ stock_map.get((item.sku, location.id), 0) }}{% if not loop.last %},{% endif %}
+      {% endfor %}
+    }
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+};
+
+function showStockInfo(selectElement, index) {
+  const sku = selectElement.value;
+  const stockInfoDiv = document.querySelector(`.stock-info-${index}`);
+  
+  if (!sku) {
+    stockInfoDiv.style.display = 'none';
+    return;
+  }
+  
+  const stockDetails = stockInfoDiv.querySelector('.stock-details');
+  const itemData = stockData[sku];
+  
+  if (itemData) {
+    let html = '<div class="row small mt-1">';
+    let totalStock = 0;
+    
+    for (const [depot, qty] of Object.entries(itemData.depots)) {
+      totalStock += qty;
+      const badge = qty > 0 ? 'bg-success' : 'bg-secondary';
+      html += `
+        <div class="col-md-6 mb-1">
+          <span class="badge ${badge}">${depot}</span>: ${qty} units
+        </div>
+      `;
+    }
+    
+    html += '</div>';
+    html += `<div class="mt-2"><strong>Total Available:</strong> <span class="badge bg-primary">${totalStock} units</span></div>`;
+    
+    stockDetails.innerHTML = html;
+    stockInfoDiv.style.display = 'block';
+  }
+}
+
 function addItem() {
   const container = document.getElementById('items-container');
-  const newRow = document.createElement('div');
-  newRow.className = 'row mb-2 item-row';
-  newRow.innerHTML = `
-    <div class="col-md-8">
-      <select name="item_sku_${itemIndex}" class="form-select item-select" required>
-        <option value="">Select Item</option>
-        {% for item in items %}
-        <option value="{{ item.sku }}">{{ item.name }} (SKU: {{ item.sku }})</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-3">
-      <input type="number" name="item_qty_${itemIndex}" class="form-control" placeholder="Quantity" min="1" required>
-    </div>
-    <div class="col-md-1">
-      <button type="button" class="btn btn-outline-danger remove-item-btn" onclick="removeItem(this)">
-        <i class="bi bi-trash"></i>
-      </button>
+  const newCard = document.createElement('div');
+  newCard.className = 'card mb-3 item-row';
+  newCard.innerHTML = `
+    <div class="card-body">
+      <div class="row mb-2">
+        <div class="col-md-11">
+          <label class="form-label fw-bold">Select Item</label>
+          <select name="item_sku_${itemIndex}" class="form-select item-select" onchange="showStockInfo(this, ${itemIndex})" required>
+            <option value="">-- Select Item --</option>
+            {% for item in items %}
+            <option value="{{ item.sku }}">{{ item.name }} (SKU: {{ item.sku }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+          <button type="button" class="btn btn-outline-danger remove-item-btn" onclick="removeItem(this)">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="stock-info-${itemIndex} stock-info" style="display:none;">
+        <div class="alert alert-info py-2 mb-2">
+          <strong><i class="bi bi-box-seam me-1"></i>Stock by Depot:</strong>
+          <div class="stock-details mt-1"></div>
+        </div>
+        
+        <div class="row">
+          <div class="col-md-6">
+            <label class="form-label">Requested Quantity <span class="text-danger">*</span></label>
+            <input type="number" name="item_requested_${itemIndex}" class="form-control" placeholder="Enter requested quantity" min="1" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Allocated Quantity <span class="text-danger">*</span></label>
+            <input type="number" name="item_allocated_${itemIndex}" class="form-control" placeholder="Enter quantity to fulfill" min="0" required>
+            <small class="text-muted">Must be ≤ requested and ≤ total available</small>
+          </div>
+        </div>
+      </div>
     </div>
   `;
-  container.appendChild(newRow);
+  container.appendChild(newCard);
   itemIndex++;
   updateRemoveButtons();
 }

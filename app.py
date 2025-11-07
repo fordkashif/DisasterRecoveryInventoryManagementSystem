@@ -1216,35 +1216,62 @@ def package_create():
             flash("Distributor is required.", "danger")
             return redirect(url_for("package_create"))
         
-        # Parse items from form (dynamic fields: item_sku_N, item_qty_N)
-        items_requested = []
+        # Parse items from form (dynamic fields: item_sku_N, item_requested_N, item_allocated_N)
+        items_data = []
         item_index = 0
+        stock_map = get_stock_by_location()
+        locations = Depot.query.all()
+        
         while True:
             sku_key = f"item_sku_{item_index}"
-            qty_key = f"item_qty_{item_index}"
+            requested_key = f"item_requested_{item_index}"
+            allocated_key = f"item_allocated_{item_index}"
             
             if sku_key not in request.form:
                 break
             
             sku = request.form[sku_key].strip()
-            qty_str = request.form[qty_key].strip()
+            requested_str = request.form.get(requested_key, "").strip()
+            allocated_str = request.form.get(allocated_key, "").strip()
             
-            if sku and qty_str:
+            if sku and requested_str:
                 try:
-                    qty = int(qty_str)
-                    if qty > 0:
-                        items_requested.append((sku, qty))
+                    requested_qty = int(requested_str)
+                    allocated_qty = int(allocated_str) if allocated_str else 0
+                    
+                    if requested_qty <= 0:
+                        flash(f"Requested quantity must be greater than 0 for item {sku}.", "danger")
+                        return redirect(url_for("package_create"))
+                    
+                    # Calculate total available stock
+                    total_available = sum(stock_map.get((sku, loc.id), 0) for loc in locations)
+                    
+                    # Validate allocated quantity
+                    if allocated_qty > requested_qty:
+                        flash(f"Allocated quantity cannot exceed requested quantity for item {sku}.", "danger")
+                        return redirect(url_for("package_create"))
+                    
+                    if allocated_qty > total_available:
+                        flash(f"Allocated quantity exceeds available stock for item {sku}. Available: {total_available}", "danger")
+                        return redirect(url_for("package_create"))
+                    
+                    items_data.append({
+                        'sku': sku,
+                        'requested_qty': requested_qty,
+                        'allocated_qty': allocated_qty
+                    })
                 except ValueError:
-                    pass
+                    flash(f"Invalid quantity values for item {sku}.", "danger")
+                    return redirect(url_for("package_create"))
             
             item_index += 1
         
-        if not items_requested:
+        if not items_data:
             flash("At least one item with quantity is required.", "danger")
             return redirect(url_for("package_create"))
         
-        # Check stock availability
-        availability_result = check_stock_availability(items_requested)
+        # Determine if package is partial
+        is_partial = any(item['allocated_qty'] < item['requested_qty'] for item in items_data)
         
         # Create package
         package = DistributionPackage(
@@ -1252,7 +1279,7 @@ def package_create():
             distributor_id=int(distributor_id),
             event_id=int(event_id) if event_id else None,
             status="Draft",
-            is_partial=availability_result['is_partial'],
+            is_partial=is_partial,
             created_by=current_user.full_name,
             notes=notes
         )
@@ -1260,7 +1287,7 @@ def package_create():
         db.session.flush()  # Get package.id
         
         # Add package items
-        for item_data in availability_result['items']:
+        for item_data in items_data:
             package_item = PackageItem(
                 package_id=package.id,
                 item_sku=item_data['sku'],
@@ -1281,11 +1308,15 @@ def package_create():
     distributors = Distributor.query.order_by(Distributor.name).all()
     events = DisasterEvent.query.filter_by(status="Active").order_by(DisasterEvent.start_date.desc()).all()
     items = Item.query.order_by(Item.name).all()
+    locations = Depot.query.order_by(Depot.name).all()
+    stock_map = get_stock_by_location()
     
     return render_template("package_form.html", 
                          distributors=distributors, 
                          events=events,
-                         items=items)
+                         items=items,
+                         locations=locations,
+                         stock_map=stock_map)
 
 @app.route("/packages/<int:package_id>")
 @role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER, ROLE_WAREHOUSE_STAFF)
