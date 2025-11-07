@@ -43,11 +43,17 @@ Distributors can review partial fulfillment notifications and either accept (all
 **Distributor Self-Service Portal**: Distributors with login accounts can now create their own needs lists through a dedicated self-service interface. Key features include:
 - **My Needs Lists** dashboard showing all submitted requests and their status
 - Ability to create needs lists directly without inventory manager intermediary
-- In-app notifications for partial fulfillment alerts
+- **Enhanced In-App Notification System**: Prominent notification display with:
+  - Real-time alerts for package approvals, dispatches, and deliveries
+  - Partial fulfillment alerts with requested vs allocated quantities
+  - Navigation badge showing unread notification count
+  - Individual and bulk "Mark as Read" functionality
+  - Separate sections for unread notifications and notification history
+  - Clear action buttons to view packages and respond to alerts
 - Response interface to accept or reject partial fulfillment
 - Complete visibility into package status throughout the workflow
 
-This self-service capability significantly reduces manual data entry for inventory managers while maintaining complete audit trails and approval workflows.
+This self-service capability significantly reduces manual data entry for inventory managers while maintaining complete audit trails and approval workflows. The notification system ensures distributors are immediately aware of any status changes to their packages and can take timely action.
 
 **Transaction Generation**: Upon approval, the system automatically generates OUT transactions for all package items, updating inventory levels at the assigned warehouse. This ensures inventory accuracy and maintains the complete audit trail.
 
