@@ -62,21 +62,23 @@
                     </div>
                     
                     <div class="stock-info-0 stock-info" style="display:none;">
-                      <div class="alert alert-info py-2 mb-2">
-                        <strong><i class="bi bi-box-seam me-1"></i>Stock by Depot:</strong>
-                        <div class="stock-details mt-1"></div>
+                      <div class="row mb-3">
+                        <div class="col-12">
+                          <label class="form-label fw-bold">Requested Quantity <span class="text-danger">*</span></label>
+                          <input type="number" name="item_requested_0" class="form-control" placeholder="Enter requested quantity" min="1" required oninput="updateTotalAllocated(0)">
+                        </div>
                       </div>
                       
-                      <div class="row">
-                        <div class="col-md-6">
-                          <label class="form-label">Requested Quantity <span class="text-danger">*</span></label>
-                          <input type="number" name="item_requested_0" class="form-control" placeholder="Enter requested quantity" min="1" required>
-                        </div>
-                        <div class="col-md-6">
-                          <label class="form-label">Allocated Quantity <span class="text-danger">*</span></label>
-                          <input type="number" name="item_allocated_0" class="form-control" placeholder="Enter quantity to fulfill" min="0" required>
-                          <small class="text-muted">Must be ≤ requested and ≤ total available</small>
-                        </div>
+                      <div class="alert alert-primary py-2 mb-2">
+                        <strong><i class="bi bi-box-seam me-1"></i>Allocate from Depots:</strong>
+                        <p class="small mb-0 mt-1">Enter how much to fulfill from each depot (must total ≤ requested quantity)</p>
+                      </div>
+                      
+                      <div class="depot-allocations-0 depot-allocations"></div>
+                      
+                      <div class="mt-2 p-2 bg-light rounded">
+                        <strong>Total Allocated:</strong> <span class="total-allocated-0 total-allocated badge bg-secondary">0</span> / 
+                        <span class="requested-display-0">0</span> requested
                       </div>
                     </div>
                   </div>
@@ -151,28 +153,82 @@ function showStockInfo(selectElement, index) {
     return;
   }
   
-  const stockDetails = stockInfoDiv.querySelector('.stock-details');
+  const depotAllocationsDiv = stockInfoDiv.querySelector(`.depot-allocations-${index}`);
   const itemData = stockData[sku];
   
   if (itemData) {
-    let html = '<div class="row small mt-1">';
+    let html = '';
     let totalStock = 0;
     
-    for (const [depot, qty] of Object.entries(itemData.depots)) {
-      totalStock += qty;
-      const badge = qty > 0 ? 'bg-success' : 'bg-secondary';
+    for (const [depot, availableQty] of Object.entries(itemData.depots)) {
+      totalStock += availableQty;
+      const badge = availableQty > 0 ? 'bg-success' : 'bg-secondary';
       html += `
-        <div class="col-md-6 mb-1">
-          <span class="badge ${badge}">${depot}</span>: ${qty} units
+        <div class="row mb-2 align-items-center">
+          <div class="col-md-5">
+            <span class="badge ${badge}">${depot}</span>
+            <small class="text-muted">(${availableQty} available)</small>
+          </div>
+          <div class="col-md-7">
+            <div class="input-group input-group-sm">
+              <input type="number" 
+                     name="depot_allocation_${index}_${depot.replace(/\s+/g, '_')}" 
+                     class="form-control depot-allocation-input" 
+                     data-index="${index}" 
+                     data-depot="${depot}" 
+                     data-max="${availableQty}"
+                     placeholder="Qty from ${depot}"
+                     min="0" 
+                     max="${availableQty}"
+                     value="0"
+                     onchange="updateTotalAllocated(${index})">
+              <span class="input-group-text">/ ${availableQty}</span>
+            </div>
+          </div>
         </div>
       `;
     }
     
-    html += '</div>';
-    html += `<div class="mt-2"><strong>Total Available:</strong> <span class="badge bg-primary">${totalStock} units</span></div>`;
-    
-    stockDetails.innerHTML = html;
+    depotAllocationsDiv.innerHTML = html;
     stockInfoDiv.style.display = 'block';
+    updateTotalAllocated(index);
+  }
+}
+
+function updateTotalAllocated(index) {
+  const inputs = document.querySelectorAll(`.depot-allocation-input[data-index="${index}"]`);
+  let total = 0;
+  
+  inputs.forEach(input => {
+    const value = parseInt(input.value) || 0;
+    const max = parseInt(input.dataset.max) || 0;
+    
+    // Validate doesn't exceed available
+    if (value > max) {
+      input.value = max;
+    }
+    
+    total += parseInt(input.value) || 0;
+  });
+  
+  const totalBadge = document.querySelector(`.total-allocated-${index}`);
+  const requestedInput = document.querySelector(`input[name="item_requested_${index}"]`);
+  const requestedDisplay = document.querySelector(`.requested-display-${index}`);
+  
+  const requestedQty = parseInt(requestedInput?.value) || 0;
+  requestedDisplay.textContent = requestedQty;
+  
+  totalBadge.textContent = total;
+  
+  // Color code based on validation
+  if (total === 0) {
+    totalBadge.className = 'total-allocated badge bg-secondary';
+  } else if (total > requestedQty) {
+    totalBadge.className = 'total-allocated badge bg-danger';
+  } else if (total === requestedQty) {
+    totalBadge.className = 'total-allocated badge bg-success';
+  } else {
+    totalBadge.className = 'total-allocated badge bg-warning';
   }
 }
 
@@ -200,21 +256,23 @@ function addItem() {
       </div>
       
       <div class="stock-info-${itemIndex} stock-info" style="display:none;">
-        <div class="alert alert-info py-2 mb-2">
-          <strong><i class="bi bi-box-seam me-1"></i>Stock by Depot:</strong>
-          <div class="stock-details mt-1"></div>
+        <div class="row mb-3">
+          <div class="col-12">
+            <label class="form-label fw-bold">Requested Quantity <span class="text-danger">*</span></label>
+            <input type="number" name="item_requested_${itemIndex}" class="form-control" placeholder="Enter requested quantity" min="1" required oninput="updateTotalAllocated(${itemIndex})">
+          </div>
         </div>
         
-        <div class="row">
-          <div class="col-md-6">
-            <label class="form-label">Requested Quantity <span class="text-danger">*</span></label>
-            <input type="number" name="item_requested_${itemIndex}" class="form-control" placeholder="Enter requested quantity" min="1" required>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Allocated Quantity <span class="text-danger">*</span></label>
-            <input type="number" name="item_allocated_${itemIndex}" class="form-control" placeholder="Enter quantity to fulfill" min="0" required>
-            <small class="text-muted">Must be ≤ requested and ≤ total available</small>
-          </div>
+        <div class="alert alert-primary py-2 mb-2">
+          <strong><i class="bi bi-box-seam me-1"></i>Allocate from Depots:</strong>
+          <p class="small mb-0 mt-1">Enter how much to fulfill from each depot (must total ≤ requested quantity)</p>
+        </div>
+        
+        <div class="depot-allocations-${itemIndex} depot-allocations"></div>
+        
+        <div class="mt-2 p-2 bg-light rounded">
+          <strong>Total Allocated:</strong> <span class="total-allocated-${itemIndex} total-allocated badge bg-secondary">0</span> / 
+          <span class="requested-display-${itemIndex}">0</span> requested
         </div>
       </div>
     </div>

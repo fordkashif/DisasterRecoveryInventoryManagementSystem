@@ -73,6 +73,7 @@
                   <th class="text-end">Allocated</th>
                   <th class="text-end">Available Stock</th>
                   <th class="text-center">Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -90,7 +91,42 @@
                       <span class="badge bg-warning text-dark">Partial</span>
                     {% endif %}
                   </td>
+                  <td class="text-center">
+                    {% if pkg_item.allocations %}
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#allocations-{{ pkg_item.id }}">
+                      <i class="bi bi-chevron-down"></i> Depots
+                    </button>
+                    {% endif %}
+                  </td>
                 </tr>
+                {% if pkg_item.allocations %}
+                <tr class="collapse" id="allocations-{{ pkg_item.id }}">
+                  <td colspan="7" class="bg-light">
+                    <div class="p-3">
+                      <strong class="text-primary"><i class="bi bi-building me-2"></i>Depot Allocations:</strong>
+                      <div class="row mt-2">
+                        {% for allocation in pkg_item.allocations %}
+                        <div class="col-md-6 mb-2">
+                          <div class="card border-primary">
+                            <div class="card-body py-2">
+                              <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <i class="bi bi-geo-alt text-primary me-1"></i>
+                                  <strong>{{ allocation.depot.name }}</strong>
+                                </div>
+                                <div>
+                                  <span class="badge bg-primary">{{ allocation.allocated_qty }} units</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% endif %}
                 {% endfor %}
               </tbody>
             </table>

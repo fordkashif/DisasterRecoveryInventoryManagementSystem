@@ -152,10 +152,26 @@ class PackageItem(db.Model):
     package_id = db.Column(db.Integer, db.ForeignKey("distribution_package.id"), nullable=False)
     item_sku = db.Column(db.String(64), db.ForeignKey("item.sku"), nullable=False)
     requested_qty = db.Column(db.Integer, nullable=False)  # Quantity requested by distributor
-    allocated_qty = db.Column(db.Integer, nullable=False, default=0)  # Actual quantity allocated (may be less if stock insufficient)
+    allocated_qty = db.Column(db.Integer, nullable=False, default=0)  # Total quantity allocated (sum of all depot allocations)
     
     package = db.relationship("DistributionPackage", back_populates="items")
     item = db.relationship("Item")
+    allocations = db.relationship("PackageItemAllocation", back_populates="package_item", cascade="all, delete-orphan")
+
+class PackageItemAllocation(db.Model):
+    """Per-depot allocation for package items - tracks which depots fulfill which quantities"""
+    __tablename__ = 'package_item_allocation'
+    __table_args__ = (
+        db.UniqueConstraint('package_item_id', 'depot_id', name='uq_package_item_depot'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True)
+    package_item_id = db.Column(db.Integer, db.ForeignKey("package_item.id", ondelete="CASCADE"), nullable=False)
+    depot_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)
+    allocated_qty = db.Column(db.Integer, nullable=False)  # Quantity to be fulfilled from this depot
+    
+    package_item = db.relationship("PackageItem", back_populates="allocations")
+    depot = db.relationship("Depot")
 
 class PackageStatusHistory(db.Model):
     """Audit trail of package status changes"""
@@ -1216,52 +1232,70 @@ def package_create():
             flash("Distributor is required.", "danger")
             return redirect(url_for("package_create"))
         
-        # Parse items from form (dynamic fields: item_sku_N, item_requested_N, item_allocated_N)
+        # Parse items from form (dynamic fields: item_sku_N, item_requested_N, depot_allocation_N_DEPOT)
         items_data = []
         item_index = 0
         stock_map = get_stock_by_location()
         locations = Depot.query.all()
+        depot_name_to_id = {loc.name: loc.id for loc in locations}
         
         while True:
             sku_key = f"item_sku_{item_index}"
             requested_key = f"item_requested_{item_index}"
-            allocated_key = f"item_allocated_{item_index}"
             
             if sku_key not in request.form:
                 break
             
             sku = request.form[sku_key].strip()
             requested_str = request.form.get(requested_key, "").strip()
-            allocated_str = request.form.get(allocated_key, "").strip()
             
             if sku and requested_str:
                 try:
                     requested_qty = int(requested_str)
-                    allocated_qty = int(allocated_str) if allocated_str else 0
                     
                     if requested_qty <= 0:
                         flash(f"Requested quantity must be greater than 0 for item {sku}.", "danger")
                         return redirect(url_for("package_create"))
                     
-                    # Calculate total available stock
-                    total_available = sum(stock_map.get((sku, loc.id), 0) for loc in locations)
+                    # Parse per-depot allocations
+                    depot_allocations = []
+                    total_allocated = 0
                     
-                    # Validate allocated quantity
-                    if allocated_qty > requested_qty:
-                        flash(f"Allocated quantity cannot exceed requested quantity for item {sku}.", "danger")
-                        return redirect(url_for("package_create"))
+                    for loc in locations:
+                        depot_field_name = f"depot_allocation_{item_index}_{loc.name.replace(' ', '_')}"
+                        depot_qty_str = request.form.get(depot_field_name, "").strip()
+                        
+                        if depot_qty_str:
+                            depot_qty = int(depot_qty_str)
+                            
+                            if depot_qty > 0:
+                                # Validate against depot stock
+                                available_at_depot = stock_map.get((sku, loc.id), 0)
+                                
+                                if depot_qty > available_at_depot:
+                                    flash(f"Item {sku}: Cannot allocate {depot_qty} from {loc.name}. Only {available_at_depot} available.", "danger")
+                                    return redirect(url_for("package_create"))
+                                
+                                depot_allocations.append({
+                                    'depot_id': loc.id,
+                                    'depot_name': loc.name,
+                                    'qty': depot_qty
+                                })
+                                total_allocated += depot_qty
                     
-                    if allocated_qty > total_available:
-                        flash(f"Allocated quantity exceeds available stock for item {sku}. Available: {total_available}", "danger")
+                    # Validate total allocation
+                    if total_allocated > requested_qty:
+                        flash(f"Item {sku}: Total allocated ({total_allocated}) cannot exceed requested quantity ({requested_qty}).", "danger")
                         return redirect(url_for("package_create"))
                     
                     items_data.append({
                         'sku': sku,
                         'requested_qty': requested_qty,
-                        'allocated_qty': allocated_qty
+                        'allocated_qty': total_allocated,
+                        'depot_allocations': depot_allocations
                     })
-                except ValueError:
-                    flash(f"Invalid quantity values for item {sku}.", "danger")
+                except ValueError as e:
+                    flash(f"Invalid quantity values for item {sku}: {str(e)}", "danger")
                     return redirect(url_for("package_create"))
             
             item_index += 1
@@ -1286,7 +1320,7 @@ def package_create():
         db.session.add(package)
         db.session.flush()  # Get package.id
         
-        # Add package items
+        # Add package items and depot allocations
         for item_data in items_data:
             package_item = PackageItem(
                 package_id=package.id,
@@ -1295,6 +1329,16 @@ def package_create():
                 allocated_qty=item_data['allocated_qty']
             )
             db.session.add(package_item)
+            db.session.flush()  # Get package_item.id
+            
+            # Add per-depot allocations
+            for depot_allocation in item_data['depot_allocations']:
+                allocation = PackageItemAllocation(
+                    package_item_id=package_item.id,
+                    depot_id=depot_allocation['depot_id'],
+                    allocated_qty=depot_allocation['qty']
+                )
+                db.session.add(allocation)
         
         # Record initial status
         record_package_status_change(package, None, "Draft", current_user.full_name, "Package created")
@@ -1420,20 +1464,21 @@ def package_dispatch(package_id):
     
     dispatch_notes = request.form.get("dispatch_notes", "").strip() or None
     
-    # Generate OUT transactions for each item
+    # Generate OUT transactions per depot allocation (multi-depot support)
     for pkg_item in package.items:
-        if pkg_item.allocated_qty > 0:
-            transaction = Transaction(
-                item_sku=pkg_item.item_sku,
-                ttype="OUT",
-                qty=pkg_item.allocated_qty,
-                location_id=package.assigned_location_id,
-                distributor_id=package.distributor_id,
-                event_id=package.event_id,
-                notes=f"Dispatched via package {package.package_number}",
-                created_by=current_user.full_name
-            )
-            db.session.add(transaction)
+        for allocation in pkg_item.allocations:
+            if allocation.allocated_qty > 0:
+                transaction = Transaction(
+                    item_sku=pkg_item.item_sku,
+                    ttype="OUT",
+                    qty=allocation.allocated_qty,
+                    location_id=allocation.depot_id,  # Transaction from specific depot
+                    distributor_id=package.distributor_id,
+                    event_id=package.event_id,
+                    notes=f"Dispatched from {allocation.depot.name} via package {package.package_number}",
+                    created_by=current_user.full_name
+                )
+                db.session.add(transaction)
     
     old_status = package.status
     package.status = "Dispatched"

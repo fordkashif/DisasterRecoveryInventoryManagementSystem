@@ -71,7 +71,14 @@ Distributors can review partial fulfillment notifications and either accept (all
 
 This self-service capability significantly reduces manual data entry for inventory managers while maintaining complete audit trails and approval workflows. The notification system ensures distributors are immediately aware of any status changes to their packages and can take timely action.
 
-**Transaction Generation**: Upon approval, the system automatically generates OUT transactions for all package items, updating inventory levels at the assigned warehouse. This ensures inventory accuracy and maintains the complete audit trail.
+**Multi-Depot Fulfillment with Per-Depot Allocation Tracking**: The system supports manual allocation of package items from multiple depots during package creation. Inventory managers can specify exactly how many units of each item should come from which depot, enabling flexible fulfillment when stock is distributed across locations. Key features include:
+- **Manual Allocation Interface**: Package creation form displays available stock per depot for each item, allowing managers to allocate specific quantities from specific depots
+- **Per-Depot Validation**: Server-side validation ensures allocated quantities do not exceed available stock at each depot
+- **Allocation Tracking**: PackageItemAllocation table records which depot provides which quantity for each package item
+- **Multi-Depot Transaction Generation**: Upon dispatch, the system generates separate OUT transactions for each depot allocation, ensuring accurate inventory deduction at the source depot
+- **Allocation Visibility**: Package details view displays depot allocations in expandable rows, clearly showing which depots contribute to each item
+
+This implementation supports Option B requirements: complete per-depot allocation tracking with individual OUT transactions per depot, maintaining accurate inventory levels across all locations.
 
 **Audit Trail**: Complete tracking of package lifecycle including:
 - Creation timestamp and creator
@@ -84,6 +91,7 @@ This self-service capability significantly reduces manual data entry for invento
 **Data Model Entities**:
 - **DistributionPackage**: Main package record with workflow status, distributor link, assigned location, and audit fields
 - **PackageItem**: Individual items in package with requested_qty and allocated_qty
+- **PackageItemAllocation**: Tracks per-depot allocations (package_item_id + depot_id + allocated_qty) with unique constraint preventing duplicate depot allocations per item
 - **PackageStatusHistory**: Complete audit trail of all status transitions
 - **DistributorNotification**: In-app notification system for partial fulfillment alerts and status updates
 
