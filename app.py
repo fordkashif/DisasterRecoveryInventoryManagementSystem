@@ -1372,9 +1372,19 @@ def package_details(package_id):
     stock_map = get_stock_by_location()
     locations = Depot.query.all()
     
-    # Calculate current stock for each item
+    # Calculate current stock and stock by depot for each item
     for pkg_item in package.items:
         pkg_item.current_stock = sum(stock_map.get((pkg_item.item_sku, loc.id), 0) for loc in locations)
+        
+        # Add stock breakdown by depot
+        pkg_item.stock_by_depot = []
+        for loc in locations:
+            stock_qty = stock_map.get((pkg_item.item_sku, loc.id), 0)
+            pkg_item.stock_by_depot.append({
+                'depot_name': loc.name,
+                'depot_id': loc.id,
+                'stock': stock_qty
+            })
     
     return render_template("package_details.html", package=package)
 
