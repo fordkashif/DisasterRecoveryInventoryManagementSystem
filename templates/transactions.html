@@ -14,18 +14,12 @@
             <th>
               <div class="d-flex align-items-center gap-2">
                 When
-                <div class="btn-group btn-group-sm" role="group">
-                  <a href="{{ url_for('transactions', sort_by='created_at', order='desc') }}" 
-                     class="btn btn-outline-secondary {% if order == 'desc' %}active{% endif %}" 
-                     title="Newest">
-                    <i class="bi bi-arrow-down"></i>
-                  </a>
-                  <a href="{{ url_for('transactions', sort_by='created_at', order='asc') }}" 
-                     class="btn btn-outline-secondary {% if order == 'asc' %}active{% endif %}" 
-                     title="Oldest">
-                    <i class="bi bi-arrow-up"></i>
-                  </a>
-                </div>
+                <a href="{{ url_for('transactions', sort_by='created_at', order='asc' if order == 'desc' else 'desc') }}" 
+                   class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                   style="font-size: 0.875rem;">
+                  <i class="bi bi-arrow-{% if order == 'desc' %}down{% else %}up{% endif %}" style="font-size: 0.75rem;"></i>
+                  <span>{% if order == 'desc' %}Newest{% else %}Oldest{% endif %}</span>
+                </a>
               </div>
             </th>
             <th>
