@@ -94,6 +94,11 @@
             <li class="nav-item"><a class="nav-link" href="{{ url_for('packages') }}"><i class="bi bi-box-seam-fill me-1"></i>Packages</a></li>
           {% endif %}
           
+          {# Stock Transfer - visible to managers and warehouse staff #}
+          {% if current_user.role in ['ADMIN', 'INVENTORY_MANAGER', 'WAREHOUSE_STAFF'] %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('stock_transfer') }}"><i class="bi bi-arrow-left-right me-1"></i>Transfer</a></li>
+          {% endif %}
+          
           {# My Needs Lists - visible to distributors #}
           {% if current_user.role == 'DISTRIBUTOR' %}
             <li class="nav-item">

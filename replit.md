@@ -107,6 +107,17 @@ The frontend uses server-side rendered HTML templates with Bootstrap 5 and Boots
 ### Stock Calculation Strategy
 Stock levels are dynamically aggregated on-demand from transaction records, summing "IN" and subtracting "OUT" transactions, filtered by location and item, ensuring data consistency and a complete audit trail.
 
+### Stock Transfer Between Depots
+The system provides inventory managers and warehouse staff with the ability to transfer stock between depots to rebalance inventory when one location is running low. Key features include:
+- **Real-Time Stock Visibility**: Shows available stock at source and destination depots during transfer
+- **Live Transfer Preview**: Displays before/after stock levels at both depots before confirming
+- **Automatic Validation**: Prevents transfers exceeding available stock and requires different source/destination
+- **Linked Transactions**: Creates paired OUT/IN transactions to maintain accurate audit trail
+- **Transfer History**: Displays recent transfers with complete details (date, item, from/to locations, quantity, user)
+- **Visual Workflow**: Clear UI with transfer arrow showing stock movement between depots
+
+This feature enables efficient stock rebalancing across the distribution network, ensuring all depots maintain adequate inventory levels for disaster relief operations.
+
 ### Dashboard Features
 The dashboard provides a comprehensive overview with KPIs (total items, total units, low stock items), inventory by category, stock by location, low stock alerts, recent transactions, expiring items alerts, activity by disaster event, operations metrics, and transaction analytics.
 

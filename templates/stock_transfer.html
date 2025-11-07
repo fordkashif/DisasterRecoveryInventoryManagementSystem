@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Transfer{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-arrow-left-right me-2"></i>Stock Transfer Between Depots</h2>
+    <a href="{{ url_for('transactions') }}" class="btn btn-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Transactions
+    </a>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-box-arrow-right me-2"></i>Transfer Stock
+        </div>
+        <div class="card-body">
+          <form method="POST">
+            <!-- Item Selection -->
+            <div class="mb-4">
+              <label for="item_sku" class="form-label fw-bold">Select Item <span class="text-danger">*</span></label>
+              <select id="item_sku" name="item_sku" class="form-select form-select-lg" required onchange="updateStockDisplay()">
+                <option value="">-- Select Item --</option>
+                {% for item in items %}
+                <option value="{{ item.sku }}" data-name="{{ item.name }}">{{ item.name }} (SKU: {{ item.sku }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6">
+                <!-- From Depot -->
+                <div class="mb-4">
+                  <label for="from_depot_id" class="form-label fw-bold">From Depot (Source) <span class="text-danger">*</span></label>
+                  <select id="from_depot_id" name="from_depot_id" class="form-select form-select-lg" required onchange="updateStockDisplay()">
+                    <option value="">-- Select Source Depot --</option>
+                    {% for depot in depots %}
+                    <option value="{{ depot.id }}">{{ depot.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <div id="source-stock-display" class="mt-2 p-2 bg-light rounded" style="display:none;">
+                    <strong>Available Stock:</strong> 
+                    <span id="source-stock-qty" class="badge bg-success fs-6 ms-2">0</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <!-- To Depot -->
+                <div class="mb-4">
+                  <label for="to_depot_id" class="form-label fw-bold">To Depot (Destination) <span class="text-danger">*</span></label>
+                  <select id="to_depot_id" name="to_depot_id" class="form-select form-select-lg" required onchange="updateStockDisplay()">
+                    <option value="">-- Select Destination Depot --</option>
+                    {% for depot in depots %}
+                    <option value="{{ depot.id }}">{{ depot.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <div id="dest-stock-display" class="mt-2 p-2 bg-light rounded" style="display:none;">
+                    <strong>Current Stock:</strong> 
+                    <span id="dest-stock-qty" class="badge bg-info fs-6 ms-2">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Visual Transfer Arrow -->
+            <div id="transfer-arrow" class="text-center mb-4" style="display:none;">
+              <div class="p-3 bg-light rounded">
+                <div class="row align-items-center">
+                  <div class="col-md-4 text-end">
+                    <h5 class="mb-0" id="from-depot-name">-</h5>
+                    <span class="badge bg-success" id="from-stock-badge">0 units</span>
+                  </div>
+                  <div class="col-md-4">
+                    <h1 class="text-primary mb-0">
+                      <i class="bi bi-arrow-right-circle-fill"></i>
+                    </h1>
+                    <div class="text-muted small">Transferring</div>
+                  </div>
+                  <div class="col-md-4 text-start">
+                    <h5 class="mb-0" id="to-depot-name">-</h5>
+                    <span class="badge bg-info" id="to-stock-badge">0 units</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quantity -->
+            <div class="mb-4">
+              <label for="quantity" class="form-label fw-bold">Quantity to Transfer <span class="text-danger">*</span></label>
+              <input type="number" id="quantity" name="quantity" class="form-control form-control-lg" placeholder="Enter quantity" min="1" required oninput="updateTransferPreview()">
+              <div id="quantity-validation" class="mt-2" style="display:none;"></div>
+            </div>
+
+            <!-- Transfer Preview -->
+            <div id="transfer-preview" class="alert alert-info" style="display:none;">
+              <h6><i class="bi bi-info-circle me-2"></i>Transfer Preview:</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-2">
+                    <strong id="preview-from-name">Source</strong>: 
+                    <span id="preview-from-before" class="text-muted">0</span>
+                    <i class="bi bi-arrow-right mx-2"></i>
+                    <span id="preview-from-after" class="text-success fw-bold">0</span> units
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="mb-2">
+                    <strong id="preview-to-name">Destination</strong>: 
+                    <span id="preview-to-before" class="text-muted">0</span>
+                    <i class="bi bi-arrow-right mx-2"></i>
+                    <span id="preview-to-after" class="text-primary fw-bold">0</span> units
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="mb-4">
+              <label for="notes" class="form-label fw-bold">Transfer Notes (Optional)</label>
+              <textarea id="notes" name="notes" class="form-control" rows="2" placeholder="Reason for transfer, tracking number, etc."></textarea>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-success btn-lg" id="submit-btn" disabled>
+                <i class="bi bi-arrow-left-right me-1"></i>Execute Transfer
+              </button>
+              <a href="{{ url_for('transactions') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Recent Transfers -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <i class="bi bi-clock-history me-2"></i>Recent Transfers (Last 10)
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th>Item</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th class="text-end">Qty</th>
+                  <th>By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set recent_transfers = [] %}
+                {% for item in items %}
+                  {% for depot in depots %}
+                    {% set transactions = item.transactions|selectattr('location_id', 'equalto', depot.id)|selectattr('notes', 'search', 'Stock transfer')|list %}
+                    {% for txn in transactions[:10] %}
+                      {% set _ = recent_transfers.append(txn) %}
+                    {% endfor %}
+                  {% endfor %}
+                {% endfor %}
+                
+                {% if recent_transfers %}
+                  {% for txn in recent_transfers|sort(attribute='created_at', reverse=true)[:10] %}
+                  <tr>
+                    <td><small>{{ txn.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
+                    <td>{{ txn.item.name }}</td>
+                    <td>
+                      {% if txn.ttype == 'OUT' %}
+                        <span class="badge bg-danger">{{ txn.location.name }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if txn.ttype == 'IN' %}
+                        <span class="badge bg-success">{{ txn.location.name }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">{{ txn.qty }}</td>
+                    <td><small>{{ txn.created_by }}</small></td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="6" class="text-center text-muted py-3">No recent transfers</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card bg-light sticky-top" style="top: 20px;">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-info-circle me-2"></i>Stock Transfer Guide</h5>
+          <p class="small">Use this tool to rebalance inventory between depots when one location is running low on stock.</p>
+          
+          <ol class="small">
+            <li><strong>Select Item:</strong> Choose the item to transfer</li>
+            <li><strong>Source Depot:</strong> Select where stock will come from (must have available stock)</li>
+            <li><strong>Destination Depot:</strong> Select where stock will go</li>
+            <li><strong>Enter Quantity:</strong> Cannot exceed available stock at source</li>
+            <li><strong>Review Preview:</strong> Confirm stock levels before and after</li>
+            <li><strong>Execute:</strong> Transfer creates linked IN/OUT transactions</li>
+          </ol>
+
+          <div class="alert alert-warning small mt-3">
+            <i class="bi bi-exclamation-triangle"></i> <strong>Important:</strong> Transfers are immediately recorded and cannot be undone. Double-check quantities before submitting.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Stock data from backend
+const stockData = {
+  {% for item in items %}
+  "{{ item.sku }}": {
+    name: "{{ item.name }}",
+    depots: {
+      {% for depot in depots %}
+      "{{ depot.id }}": {{ stock_map.get((item.sku, depot.id), 0) }}{% if not loop.last %},{% endif %}
+      {% endfor %}
+    }
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+};
+
+const depotNames = {
+  {% for depot in depots %}
+  "{{ depot.id }}": "{{ depot.name }}"{% if not loop.last %},{% endif %}
+  {% endfor %}
+};
+
+function updateStockDisplay() {
+  const itemSku = document.getElementById('item_sku').value;
+  const fromDepotId = document.getElementById('from_depot_id').value;
+  const toDepotId = document.getElementById('to_depot_id').value;
+  
+  const sourceDisplay = document.getElementById('source-stock-display');
+  const destDisplay = document.getElementById('dest-stock-display');
+  const transferArrow = document.getElementById('transfer-arrow');
+  
+  if (itemSku && fromDepotId) {
+    const stock = stockData[itemSku].depots[fromDepotId];
+    document.getElementById('source-stock-qty').textContent = stock;
+    document.getElementById('from-stock-badge').textContent = stock + ' units';
+    document.getElementById('from-depot-name').textContent = depotNames[fromDepotId];
+    sourceDisplay.style.display = 'block';
+    
+    if (stock === 0) {
+      document.getElementById('source-stock-qty').className = 'badge bg-danger fs-6 ms-2';
+    } else {
+      document.getElementById('source-stock-qty').className = 'badge bg-success fs-6 ms-2';
+    }
+  } else {
+    sourceDisplay.style.display = 'none';
+  }
+  
+  if (itemSku && toDepotId) {
+    const stock = stockData[itemSku].depots[toDepotId];
+    document.getElementById('dest-stock-qty').textContent = stock;
+    document.getElementById('to-stock-badge').textContent = stock + ' units';
+    document.getElementById('to-depot-name').textContent = depotNames[toDepotId];
+    destDisplay.style.display = 'block';
+  } else {
+    destDisplay.style.display = 'none';
+  }
+  
+  if (itemSku && fromDepotId && toDepotId) {
+    transferArrow.style.display = 'block';
+  } else {
+    transferArrow.style.display = 'none';
+  }
+  
+  updateTransferPreview();
+}
+
+function updateTransferPreview() {
+  const itemSku = document.getElementById('item_sku').value;
+  const fromDepotId = document.getElementById('from_depot_id').value;
+  const toDepotId = document.getElementById('to_depot_id').value;
+  const quantity = parseInt(document.getElementById('quantity').value) || 0;
+  
+  const preview = document.getElementById('transfer-preview');
+  const validation = document.getElementById('quantity-validation');
+  const submitBtn = document.getElementById('submit-btn');
+  
+  if (!itemSku || !fromDepotId || !toDepotId || quantity === 0) {
+    preview.style.display = 'none';
+    validation.style.display = 'none';
+    submitBtn.disabled = true;
+    return;
+  }
+  
+  const fromStock = stockData[itemSku].depots[fromDepotId];
+  const toStock = stockData[itemSku].depots[toDepotId];
+  
+  // Validation
+  if (quantity > fromStock) {
+    validation.innerHTML = '<div class="alert alert-danger small"><i class="bi bi-exclamation-triangle"></i> Quantity exceeds available stock at source depot!</div>';
+    validation.style.display = 'block';
+    preview.style.display = 'none';
+    submitBtn.disabled = true;
+    return;
+  }
+  
+  if (fromDepotId === toDepotId) {
+    validation.innerHTML = '<div class="alert alert-danger small"><i class="bi bi-exclamation-triangle"></i> Source and destination must be different!</div>';
+    validation.style.display = 'block';
+    preview.style.display = 'none';
+    submitBtn.disabled = true;
+    return;
+  }
+  
+  validation.style.display = 'none';
+  submitBtn.disabled = false;
+  
+  // Preview
+  const fromAfter = fromStock - quantity;
+  const toAfter = toStock + quantity;
+  
+  document.getElementById('preview-from-name').textContent = depotNames[fromDepotId];
+  document.getElementById('preview-from-before').textContent = fromStock;
+  document.getElementById('preview-from-after').textContent = fromAfter;
+  
+  document.getElementById('preview-to-name').textContent = depotNames[toDepotId];
+  document.getElementById('preview-to-before').textContent = toStock;
+  document.getElementById('preview-to-after').textContent = toAfter;
+  
+  preview.style.display = 'block';
+}
+</script>
+{% endblock %}

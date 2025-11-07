@@ -1362,6 +1362,98 @@ def package_create():
                          locations=locations,
                          stock_map=stock_map)
 
+@app.route("/stock-transfer", methods=["GET", "POST"])
+@role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER, ROLE_WAREHOUSE_STAFF)
+def stock_transfer():
+    """Transfer stock between depots"""
+    if request.method == "POST":
+        item_sku = request.form.get("item_sku")
+        from_depot_id = request.form.get("from_depot_id")
+        to_depot_id = request.form.get("to_depot_id")
+        quantity_str = request.form.get("quantity")
+        notes = request.form.get("notes", "").strip()
+        
+        if not all([item_sku, from_depot_id, to_depot_id, quantity_str]):
+            flash("All fields are required.", "danger")
+            return redirect(url_for("stock_transfer"))
+        
+        try:
+            quantity = int(quantity_str)
+            from_depot_id = int(from_depot_id)
+            to_depot_id = int(to_depot_id)
+            
+            if quantity <= 0:
+                flash("Quantity must be greater than zero.", "danger")
+                return redirect(url_for("stock_transfer"))
+            
+            if from_depot_id == to_depot_id:
+                flash("Source and destination depots must be different.", "danger")
+                return redirect(url_for("stock_transfer"))
+            
+            # Verify item exists
+            item = Item.query.filter_by(sku=item_sku).first()
+            if not item:
+                flash("Item not found.", "danger")
+                return redirect(url_for("stock_transfer"))
+            
+            # Verify depots exist
+            from_depot = Depot.query.get(from_depot_id)
+            to_depot = Depot.query.get(to_depot_id)
+            if not from_depot or not to_depot:
+                flash("Depot not found.", "danger")
+                return redirect(url_for("stock_transfer"))
+            
+            # Check available stock at source depot
+            stock_map = get_stock_by_location()
+            available_stock = stock_map.get((item_sku, from_depot_id), 0)
+            
+            if quantity > available_stock:
+                flash(f"Insufficient stock at {from_depot.name}. Available: {available_stock}, Requested: {quantity}", "danger")
+                return redirect(url_for("stock_transfer"))
+            
+            # Create OUT transaction from source depot
+            transfer_note = f"Stock transfer to {to_depot.name}. {notes}" if notes else f"Stock transfer to {to_depot.name}"
+            out_transaction = Transaction(
+                item_sku=item_sku,
+                ttype="OUT",
+                qty=quantity,
+                location_id=from_depot_id,
+                notes=transfer_note,
+                created_by=current_user.full_name
+            )
+            db.session.add(out_transaction)
+            
+            # Create IN transaction to destination depot
+            in_note = f"Stock transfer from {from_depot.name}. {notes}" if notes else f"Stock transfer from {from_depot.name}"
+            in_transaction = Transaction(
+                item_sku=item_sku,
+                ttype="IN",
+                qty=quantity,
+                location_id=to_depot_id,
+                notes=in_note,
+                created_by=current_user.full_name
+            )
+            db.session.add(in_transaction)
+            
+            db.session.commit()
+            
+            flash(f"Successfully transferred {quantity} units of {item.name} from {from_depot.name} to {to_depot.name}.", "success")
+            return redirect(url_for("stock_transfer"))
+            
+        except ValueError:
+            flash("Invalid input values.", "danger")
+            return redirect(url_for("stock_transfer"))
+    
+    # GET request
+    items = Item.query.order_by(Item.name).all()
+    depots = Depot.query.order_by(Depot.name).all()
+    stock_map = get_stock_by_location()
+    
+    return render_template("stock_transfer.html",
+                         items=items,
+                         depots=depots,
+                         stock_map=stock_map)
+
 @app.route("/packages/<int:package_id>/fulfill", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER)
 def package_fulfill(package_id):
