@@ -8,13 +8,27 @@
   <div class="card-body">
 <form method="post">
   <div class="row g-3">
+    <div class="col-12">
+      <div class="alert alert-info py-2">
+        <i class="bi bi-upc-scan me-2"></i>
+        <strong>Quick Entry:</strong> Scan or enter a barcode below to auto-fill the item field
+      </div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label"><i class="bi bi-upc-scan"></i> Barcode Scanner</label>
+      <input type="text" class="form-control" id="barcode-input" placeholder="Scan or type barcode...">
+      <small class="text-muted">Press Enter after scanning or typing</small>
+      <div id="barcode-feedback" class="mt-2"></div>
+    </div>
     <div class="col-md-6">
       <label class="form-label">Item *</label>
-      <select class="form-select" name="item_sku" required>
+      <select class="form-select" name="item_sku" id="item-select" required>
+        <option value="">-- Select Item --</option>
         {% for it in items %}
           <option value="{{ it.sku }}">{{ it.name }} [{{ it.sku }}] ({{ it.unit }})</option>
         {% endfor %}
       </select>
+      <small class="text-muted">Or select manually</small>
     </div>
     <div class="col-md-3">
       <label class="form-label">Quantity *</label>
@@ -64,4 +78,59 @@
 </form>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const barcodeInput = document.getElementById('barcode-input');
+  const itemSelect = document.getElementById('item-select');
+  const feedbackDiv = document.getElementById('barcode-feedback');
+  const qtyInput = document.querySelector('input[name="qty"]');
+  
+  barcodeInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const barcode = barcodeInput.value.trim();
+      
+      if (!barcode) {
+        showFeedback('Please enter a barcode', 'danger');
+        return;
+      }
+      
+      showFeedback('Looking up barcode...', 'info');
+      
+      fetch('/api/barcode-lookup?barcode=' + encodeURIComponent(barcode))
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            itemSelect.value = data.item.sku;
+            showFeedback('✓ Item found: ' + data.item.name, 'success');
+            barcodeInput.value = '';
+            
+            if (qtyInput) {
+              qtyInput.focus();
+            }
+          } else {
+            showFeedback('✗ ' + data.message, 'danger');
+            barcodeInput.select();
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          showFeedback('✗ Error looking up barcode', 'danger');
+          barcodeInput.select();
+        });
+    }
+  });
+  
+  function showFeedback(message, type) {
+    feedbackDiv.innerHTML = '<div class="alert alert-' + type + ' py-1 mb-0"><small>' + message + '</small></div>';
+    
+    if (type === 'success') {
+      setTimeout(function() {
+        feedbackDiv.innerHTML = '';
+      }, 3000);
+    }
+  }
+});
+</script>
 {% endblock %}

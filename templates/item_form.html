@@ -13,6 +13,11 @@
       <input class="form-control" name="name" required value="{{ item.name if item else "" }}">
     </div>
     <div class="col-md-3">
+      <label class="form-label"><i class="bi bi-upc-scan"></i> Barcode</label>
+      <input class="form-control" name="barcode" value="{{ item.barcode if item else "" }}" placeholder="Scan or enter barcode">
+      <small class="text-muted">Optional - For scanner input</small>
+    </div>
+    <div class="col-md-3">
       <label class="form-label">Category</label>
       <input class="form-control" name="category" value="{{ item.category if item else "" }}">
     </div>

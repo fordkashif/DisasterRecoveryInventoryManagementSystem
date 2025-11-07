@@ -12,7 +12,23 @@ Preferred communication style: Simple, everyday language.
 The system is built using Flask (Python web framework) for rapid development and deployment, suitable for resource-constrained disaster environments.
 
 ### Data Model
-Utilizes SQLAlchemy ORM with a relational database design, supporting SQLite for development and PostgreSQL for production. The data model includes core entities like Items, Depots (formerly Locations), Donors, Beneficiaries, Distributors, DisasterEvents, and Transactions. Transactions are designed as double-entry records ("IN"/"OUT") for consistent stock calculation and audit trails. Items feature auto-generated SKUs, standardized unit of measure selection, and standardized storage requirements. Expiry dates are tracked at the transaction level (on intake) rather than at the item level, enabling per-batch expiry tracking for perishable goods. An audit trail (`created_by` field) is included in transactions for accountability.
+Utilizes SQLAlchemy ORM with a relational database design, supporting SQLite for development and PostgreSQL for production. The data model includes core entities like Items, Depots (formerly Locations), Donors, Beneficiaries, Distributors, DisasterEvents, and Transactions. Transactions are designed as double-entry records ("IN"/"OUT") for consistent stock calculation and audit trails. Items feature auto-generated SKUs, standardized unit of measure selection, barcode support for scanner integration, and standardized storage requirements. Expiry dates are tracked at the transaction level (on intake) rather than at the item level, enabling per-batch expiry tracking for perishable goods. An audit trail (`created_by` field) is included in transactions for accountability.
+
+### Barcode Scanning for Intake
+The system supports barcode scanning to streamline the donation intake process. Key features include:
+
+**Item Barcode Field**: Items can have an optional barcode value stored in the database (unique, indexed for fast lookups). Barcodes can be added when creating or editing items through the item management interface.
+
+**Barcode Scanner Integration**: The intake form includes a dedicated barcode input field with the following workflow:
+1. Warehouse staff scan or manually enter a barcode
+2. JavaScript automatically calls the `/api/barcode-lookup` API endpoint
+3. The system searches for items by barcode or SKU
+4. If found, the item dropdown is auto-selected and focus moves to the quantity field
+5. Visual feedback shows success or error messages
+
+**Benefits**: This significantly reduces manual data entry during high-volume donation intake operations, minimizes errors from manual item selection, and speeds up the overall intake process for warehouse staff processing donations.
+
+**Database Schema**: The Item table includes a `barcode` column (VARCHAR(100), unique, indexed) added via database migration.
 
 ### Distribution Package Management
 The system implements a comprehensive distribution package workflow that enables inventory managers to create, review, and approve packages for distributors based on their needs lists. Key features include:

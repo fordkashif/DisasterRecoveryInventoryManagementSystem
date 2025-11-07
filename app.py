@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -26,6 +26,7 @@ class Depot(db.Model):
 
 class Item(db.Model):
     sku = db.Column(db.String(64), primary_key=True)
+    barcode = db.Column(db.String(100), nullable=True, unique=True, index=True)  # Barcode for scanner input
     name = db.Column(db.String(200), nullable=False, index=True)
     category = db.Column(db.String(120), nullable=True, index=True)       # e.g., Food, Water, Hygiene, Medical
     unit = db.Column(db.String(32), nullable=False, default="unit")        # Unit of measure: e.g., pcs, kg, L, boxes
@@ -677,11 +678,19 @@ def item_new():
     if request.method == "POST":
         from datetime import datetime as dt
         name = request.form["name"].strip()
+        barcode = request.form.get("barcode", "").strip() or None
         category = request.form.get("category", "").strip() or None
         unit = request.form.get("unit", "unit").strip() or "unit"
         min_qty = int(request.form.get("min_qty", "0") or 0)
         description = request.form.get("description", "").strip() or None
         storage_requirements = request.form.get("storage_requirements", "").strip() or None
+
+        # Check for barcode uniqueness
+        if barcode:
+            existing_barcode = Item.query.filter_by(barcode=barcode).first()
+            if existing_barcode:
+                flash(f"Barcode '{barcode}' is already used by item '{existing_barcode.name}' [{existing_barcode.sku}].", "danger")
+                return redirect(url_for("item_new"))
 
         # Duplicate suggestion by normalized name+category+unit
         norm = normalize_name(name)
@@ -692,7 +701,7 @@ def item_new():
 
         # Generate SKU
         sku = generate_sku()
-        item = Item(sku=sku, name=name, category=category, unit=unit, min_qty=min_qty, 
+        item = Item(sku=sku, barcode=barcode, name=name, category=category, unit=unit, min_qty=min_qty, 
                    description=description, storage_requirements=storage_requirements)
         
         # Handle file upload
@@ -724,6 +733,16 @@ def item_edit(item_sku):
     from datetime import datetime as dt
     item = Item.query.get_or_404(item_sku)
     if request.method == "POST":
+        barcode = request.form.get("barcode", "").strip() or None
+        
+        # Check for barcode uniqueness (excluding current item)
+        if barcode:
+            existing_barcode = Item.query.filter(Item.barcode == barcode, Item.sku != item_sku).first()
+            if existing_barcode:
+                flash(f"Barcode '{barcode}' is already used by item '{existing_barcode.name}' [{existing_barcode.sku}].", "danger")
+                return redirect(url_for("item_edit", item_sku=item_sku))
+        
+        item.barcode = barcode
         item.name = request.form["name"].strip()
         item.category = request.form.get("category", "").strip() or None
         item.unit = request.form.get("unit", "unit").strip() or "unit"
@@ -806,6 +825,30 @@ def intake():
         flash("Intake recorded.", "success")
         return redirect(url_for("dashboard"))
     return render_template("intake.html", items=items, locations=locations, events=events)
+
+@app.route("/api/barcode-lookup")
+@login_required
+def barcode_lookup():
+    barcode = request.args.get("barcode", "").strip()
+    if not barcode:
+        return jsonify({"success": False, "message": "Barcode is required"}), 400
+    
+    # Try to find item by barcode or SKU
+    item = Item.query.filter((Item.barcode == barcode) | (Item.sku == barcode)).first()
+    
+    if item:
+        return jsonify({
+            "success": True,
+            "item": {
+                "sku": item.sku,
+                "name": item.name,
+                "category": item.category,
+                "unit": item.unit,
+                "barcode": item.barcode
+            }
+        })
+    else:
+        return jsonify({"success": False, "message": f"No item found with barcode: {barcode}"}), 404
 
 @app.route("/distribute", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER, ROLE_WAREHOUSE_STAFF, ROLE_FIELD_PERSONNEL)
