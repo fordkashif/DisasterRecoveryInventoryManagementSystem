@@ -1525,7 +1525,7 @@ def package_fulfill(package_id):
         
         db.session.commit()
         
-        flash(f"Depot allocations saved for package {package.package_number}.", "success")
+        flash(f"Draft saved! Allocations for package {package.package_number} have been saved. You can continue editing or submit for review from the package details page.", "success")
         return redirect(url_for("package_details", package_id=package_id))
     
     # GET request - show fulfillment form

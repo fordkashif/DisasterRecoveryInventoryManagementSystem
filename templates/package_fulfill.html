@@ -11,6 +11,29 @@
     </a>
   </div>
   
+  <!-- Workflow Status Indicator -->
+  <div class="card mb-3 border-primary">
+    <div class="card-body py-2">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <div class="d-flex align-items-center">
+            <span class="badge bg-primary me-2">Current Step</span>
+            <i class="bi bi-arrow-right-circle-fill text-primary me-2"></i>
+            <strong class="text-primary">Step 1: Draft Allocation</strong>
+            <span class="ms-3 text-muted small">
+              <i class="bi bi-info-circle"></i> You can save and edit multiple times
+            </span>
+          </div>
+        </div>
+        <div class="col-md-4 text-end">
+          <small class="text-muted">
+            <i class="bi bi-arrow-right"></i> Next: Submit for Review
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <div class="alert alert-info">
     <div class="row">
       <div class="col-md-4">
@@ -161,11 +184,20 @@
 
         <div class="card">
           <div class="card-body">
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-success btn-lg">
-                <i class="bi bi-check-circle me-1"></i>Save Allocations
+            <div class="alert alert-info mb-3">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Saving as Draft:</strong> Your allocations will be saved as a draft. You can return to edit them anytime before submitting for approval.
+            </div>
+            
+            <div class="d-flex gap-2 align-items-center">
+              <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-save me-1"></i>Save Draft
               </button>
               <a href="{{ url_for('package_details', package_id=package.id) }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+              
+              <div class="ms-auto text-muted small">
+                <strong>Next Steps:</strong> After saving, you can submit for review on the package details page
+              </div>
             </div>
           </div>
         </div>
@@ -181,10 +213,36 @@
             <li><strong>Check Stock:</strong> Green checkmarks show available depots</li>
             <li><strong>Allocate:</strong> Use auto-fill or manually enter quantities</li>
             <li><strong>Watch Live Updates:</strong> Remaining stock updates as you type</li>
-            <li><strong>Submit:</strong> Save allocations (partial fulfillment allowed)</li>
+            <li><strong>Save Draft:</strong> Allocations saved (can be edited anytime)</li>
           </ol>
-          <div class="alert alert-warning small mt-3">
-            <i class="bi bi-exclamation-triangle"></i> <strong>Live Stock:</strong> As you allocate, you'll see how much stock remains at each depot in real-time!
+          
+          <hr>
+          
+          <h6 class="small mb-2"><i class="bi bi-diagram-3 me-1"></i>Workflow Steps</h6>
+          <div class="small">
+            <div class="d-flex align-items-center mb-2">
+              <span class="badge bg-primary me-2">1</span>
+              <span class="fw-bold">Draft</span>
+              <i class="bi bi-arrow-right mx-2 text-muted"></i>
+            </div>
+            <div class="d-flex align-items-center mb-2 text-muted">
+              <span class="badge bg-secondary me-2">2</span>
+              <span>Under Review</span>
+              <i class="bi bi-arrow-right mx-2"></i>
+            </div>
+            <div class="d-flex align-items-center mb-2 text-muted">
+              <span class="badge bg-secondary me-2">3</span>
+              <span>Approved</span>
+              <i class="bi bi-arrow-right mx-2"></i>
+            </div>
+            <div class="d-flex align-items-center text-muted">
+              <span class="badge bg-secondary me-2">4</span>
+              <span>Dispatched</span>
+            </div>
+          </div>
+          
+          <div class="alert alert-success small mt-3 mb-0">
+            <i class="bi bi-check-circle"></i> <strong>Draft Mode:</strong> You can edit and save multiple times before submitting for review!
           </div>
         </div>
       </div>
