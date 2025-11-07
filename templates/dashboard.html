@@ -214,7 +214,7 @@
             <thead class="table-light">
               <tr>
                 <th>Category</th>
-                <th class="text-center">Items</th>
+                <th class="text-center">Item Quantity</th>
                 <th class="text-end">Total Units</th>
               </tr>
             </thead>
@@ -222,14 +222,7 @@
             {% for category, stats in stock_by_category_preview %}
               <tr>
                 <td><strong>{{ category }}</strong></td>
-                <td>
-                  <small>
-                    {% for item in stats['items'] %}
-                      {{ item.name }}{% if item.stock > 0 %} ({{ "{:,}".format(item.stock) }} {{ item.unit }}){% endif %}
-                      {%- if not loop.last %}, {% endif %}
-                    {% endfor %}
-                  </small>
-                </td>
+                <td class="text-center">{{ stats['items']|length }}</td>
                 <td class="text-end">{{ "{:,}".format(stats['total_units']) }}</td>
               </tr>
             {% else %}
@@ -241,14 +234,7 @@
             {% for category, stats in stock_by_category_full[5:] %}
               <tr>
                 <td><strong>{{ category }}</strong></td>
-                <td>
-                  <small>
-                    {% for item in stats['items'] %}
-                      {{ item.name }}{% if item.stock > 0 %} ({{ "{:,}".format(item.stock) }} {{ item.unit }}){% endif %}
-                      {%- if not loop.last %}, {% endif %}
-                    {% endfor %}
-                  </small>
-                </td>
+                <td class="text-center">{{ stats['items']|length }}</td>
                 <td class="text-end">{{ "{:,}".format(stats['total_units']) }}</td>
               </tr>
             {% endfor %}
