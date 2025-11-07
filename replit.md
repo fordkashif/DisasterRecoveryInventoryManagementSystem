@@ -41,10 +41,19 @@ Enables logistics staff to transfer stock between depots with real-time stock vi
 ### Dashboard Features
 Provides a comprehensive overview with KPIs, inventory by category, stock by location, low stock alerts, recent transactions, expiring item alerts, activity by disaster event, and transaction analytics.
 
-### Authentication
+### Authentication and User Management
 Implements Flask-Login with role-based access control (RBAC) for eight user roles: ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER, WAREHOUSE_STAFF, FIELD_PERSONNEL, EXECUTIVE, AUDITOR, and DISTRIBUTOR. Features include secure password hashing, session management, role-aware navigation, and route protection.
 
+**User Management Interface:**
+- **ADMIN-only web interface** for creating, editing, and managing user accounts
+- Create new users with email, full name, role assignment, and password
+- Edit existing users: change roles, activate/deactivate accounts, reset passwords, assign locations
+- View user details including last login time and account status
+- All user actions are restricted to ADMIN role via route decorators
+- CLI commands (`flask create-admin`, `flask create-user`) remain available for initial setup
+
 **Role Hierarchy and Responsibilities:**
+- **ADMIN**: Full system access including user management, can add/remove users and assign roles.
 - **LOGISTICS_MANAGER**: Supervises logistics operations, allocates items, approves packages, and reviews work done by Logistics Officers. Part of ODPEM (Office of Disaster Preparedness and Emergency Management).
 - **LOGISTICS_OFFICER**: Creates draft allocations for needs lists, manages inventory data, and submits work for approval by Logistics Manager. Part of ODPEM.
 - **WAREHOUSE_STAFF, FIELD_PERSONNEL, EXECUTIVE, AUDITOR**: Operational and oversight roles.
