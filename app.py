@@ -974,7 +974,7 @@ def depot_inventory(location_id):
         Transaction.location_id == location_id
     ).group_by(Item.sku).order_by(Item.category.asc(), Item.name.asc()).all()
     
-    return render_template("depot_inventory.html", location=location, rows=rows)
+    return render_template("depot_inventory.html", depot=location, rows=rows)
 
 @app.route("/distributors")
 @role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER)
