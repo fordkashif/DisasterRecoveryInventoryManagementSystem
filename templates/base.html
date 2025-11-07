@@ -116,6 +116,11 @@
             <li class="nav-item"><a class="nav-link" href="{{ url_for('disaster_events') }}"><i class="bi bi-exclamation-triangle me-1"></i>Events</a></li>
           {% endif %}
           
+          {# User Management - visible to ADMIN only #}
+          {% if current_user.role == 'ADMIN' %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('users') }}"><i class="bi bi-people-fill me-1"></i>Users</a></li>
+          {% endif %}
+          
           {# Intake - visible to warehouse staff and logistics staff #}
           {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER', 'WAREHOUSE_STAFF'] %}
             <li class="nav-item"><a class="nav-link px-3" href="{{ url_for('intake') }}"><i class="bi bi-arrow-down-circle me-1"></i>Intake</a></li>

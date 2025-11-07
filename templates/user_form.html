@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-md-8">
+    <h3>{% if user %}Edit User{% else %}New User{% endif %}</h3>
+    
+    <form method="post">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Full Name *</label>
+          <input class="form-control" type="text" name="full_name" 
+                 value="{{ user.full_name if user else '' }}" 
+                 placeholder="e.g., Jane Doe" required>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Email *</label>
+          <input class="form-control" type="email" name="email" 
+                 value="{{ user.email if user else '' }}" 
+                 placeholder="user@odpem.gov.jm" required>
+          <small class="form-text text-muted">This will be the login username</small>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Role *</label>
+          <select class="form-select" name="role" required>
+            <option value="">-- Select Role --</option>
+            <option value="ADMIN" {% if user and user.role == 'ADMIN' %}selected{% endif %}>Administrator</option>
+            <option value="LOGISTICS_MANAGER" {% if user and user.role == 'LOGISTICS_MANAGER' %}selected{% endif %}>Logistics Manager</option>
+            <option value="LOGISTICS_OFFICER" {% if user and user.role == 'LOGISTICS_OFFICER' %}selected{% endif %}>Logistics Officer</option>
+            <option value="WAREHOUSE_STAFF" {% if user and user.role == 'WAREHOUSE_STAFF' %}selected{% endif %}>Warehouse Staff</option>
+            <option value="FIELD_PERSONNEL" {% if user and user.role == 'FIELD_PERSONNEL' %}selected{% endif %}>Field Personnel</option>
+            <option value="EXECUTIVE" {% if user and user.role == 'EXECUTIVE' %}selected{% endif %}>Executive</option>
+            <option value="AUDITOR" {% if user and user.role == 'AUDITOR' %}selected{% endif %}>Auditor</option>
+            <option value="DISTRIBUTOR" {% if user and user.role == 'DISTRIBUTOR' %}selected{% endif %}>Distributor</option>
+          </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Assigned Location <small class="text-muted">(optional)</small></label>
+          <select class="form-select" name="assigned_location_id">
+            <option value="">-- None --</option>
+            {% for loc in locations %}
+              <option value="{{ loc.id }}" {% if user and user.assigned_location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+            {% endfor %}
+          </select>
+          <small class="form-text text-muted">Typically for Warehouse Staff</small>
+        </div>
+      </div>
+      
+      {% if user %}
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="is_active" id="is_active" 
+               {% if user.is_active %}checked{% endif %}>
+        <label class="form-check-label" for="is_active">
+          Account is active
+        </label>
+        <small class="form-text text-muted d-block">Inactive users cannot log in</small>
+      </div>
+      {% endif %}
+      
+      <hr class="my-4">
+      <h5 class="mb-3"><i class="bi bi-key me-2"></i>Password</h5>
+      {% if user %}
+        <p class="text-muted small">Leave password fields blank to keep the current password</p>
+      {% endif %}
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Password {% if not user %}*{% endif %}</label>
+          <input class="form-control" type="password" name="password" 
+                 placeholder="Minimum 8 characters" {% if not user %}required{% endif %}>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Confirm Password {% if not user %}*{% endif %}</label>
+          <input class="form-control" type="password" name="password_confirm" 
+                 placeholder="Re-enter password" {% if not user %}required{% endif %}>
+        </div>
+      </div>
+      
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-check-lg me-1"></i>{% if user %}Update User{% else %}Create User{% endif %}
+        </button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('users') }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+  
+  {% if user %}
+  <div class="col-md-4">
+    <div class="card bg-light">
+      <div class="card-body">
+        <h6 class="card-title">User Information</h6>
+        <dl class="mb-0">
+          <dt class="text-muted small">User ID</dt>
+          <dd>{{ user.id }}</dd>
+          
+          <dt class="text-muted small">Created</dt>
+          <dd>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+          
+          <dt class="text-muted small">Last Login</dt>
+          <dd>
+            {% if user.last_login_at %}
+              {{ user.last_login_at.strftime('%Y-%m-%d %H:%M') }}
+            {% else %}
+              <span class="text-muted">Never</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -214,7 +214,7 @@ def load_user(user_id):
 def inject_notification_count():
     """Inject unread notification count for distributors into all templates"""
     unread_count = 0
-    if current_user.is_authenticated and current_user.role == "DISTRIBUTOR":
+    if current_user.is_authenticated and current_user.role == ROLE_DISTRIBUTOR:
         distributor = Distributor.query.filter_by(user_id=current_user.id).first()
         if distributor:
             unread_count = DistributorNotification.query.filter_by(
@@ -231,6 +231,7 @@ ROLE_LOGISTICS_MANAGER = "LOGISTICS_MANAGER"
 ROLE_EXECUTIVE = "EXECUTIVE"
 ROLE_ADMIN = "ADMIN"
 ROLE_AUDITOR = "AUDITOR"
+ROLE_DISTRIBUTOR = "DISTRIBUTOR"
 
 ALL_ROLES = [
     ROLE_WAREHOUSE_STAFF,
@@ -239,7 +240,8 @@ ALL_ROLES = [
     ROLE_LOGISTICS_MANAGER,
     ROLE_EXECUTIVE,
     ROLE_ADMIN,
-    ROLE_AUDITOR
+    ROLE_AUDITOR,
+    ROLE_DISTRIBUTOR
 ]
 
 # ---------- Utility ----------
@@ -2033,6 +2035,112 @@ def disaster_event_edit(event_id):
         return redirect(url_for("disaster_events"))
     return render_template("disaster_event_form.html", event=event)
 
+# ---------- User Management Routes ----------
+@app.route("/users")
+@role_required(ROLE_ADMIN)
+def users():
+    all_users = User.query.order_by(User.created_at.desc()).all()
+    return render_template("users.html", users=all_users)
+
+@app.route("/users/new", methods=["GET", "POST"])
+@role_required(ROLE_ADMIN)
+def user_new():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        full_name = request.form["full_name"].strip()
+        role = request.form["role"]
+        password = request.form["password"]
+        password_confirm = request.form["password_confirm"]
+        assigned_location_id = request.form.get("assigned_location_id") or None
+        
+        if not email or not full_name or not role or not password:
+            flash("All fields except location are required.", "danger")
+            return redirect(url_for("user_new"))
+        
+        if password != password_confirm:
+            flash("Passwords do not match.", "danger")
+            return redirect(url_for("user_new"))
+        
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.", "danger")
+            return redirect(url_for("user_new"))
+        
+        if role not in ALL_ROLES:
+            flash("Invalid role selected.", "danger")
+            return redirect(url_for("user_new"))
+        
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            flash(f"User with email '{email}' already exists.", "warning")
+            return redirect(url_for("user_new"))
+        
+        user = User(
+            email=email,
+            full_name=full_name,
+            role=role,
+            is_active=True,
+            assigned_location_id=int(assigned_location_id) if assigned_location_id else None
+        )
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f"User '{full_name}' created successfully.", "success")
+        return redirect(url_for("users"))
+    
+    locations = Depot.query.order_by(Depot.name.asc()).all()
+    return render_template("user_form.html", user=None, all_roles=ALL_ROLES, locations=locations)
+
+@app.route("/users/<int:user_id>/edit", methods=["GET", "POST"])
+@role_required(ROLE_ADMIN)
+def user_edit(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        full_name = request.form["full_name"].strip()
+        role = request.form["role"]
+        is_active = request.form.get("is_active") == "on"
+        assigned_location_id = request.form.get("assigned_location_id") or None
+        password = request.form.get("password", "").strip()
+        password_confirm = request.form.get("password_confirm", "").strip()
+        
+        if not email or not full_name or not role:
+            flash("Email, full name, and role are required.", "danger")
+            return redirect(url_for("user_edit", user_id=user_id))
+        
+        if role not in ALL_ROLES:
+            flash("Invalid role selected.", "danger")
+            return redirect(url_for("user_edit", user_id=user_id))
+        
+        existing = User.query.filter(User.email == email, User.id != user_id).first()
+        if existing:
+            flash(f"Email '{email}' is already used by another user.", "warning")
+            return redirect(url_for("user_edit", user_id=user_id))
+        
+        if password:
+            if password != password_confirm:
+                flash("Passwords do not match.", "danger")
+                return redirect(url_for("user_edit", user_id=user_id))
+            if len(password) < 8:
+                flash("Password must be at least 8 characters.", "danger")
+                return redirect(url_for("user_edit", user_id=user_id))
+            user.set_password(password)
+        
+        user.email = email
+        user.full_name = full_name
+        user.role = role
+        user.is_active = is_active
+        user.assigned_location_id = int(assigned_location_id) if assigned_location_id else None
+        
+        db.session.commit()
+        flash(f"User '{full_name}' updated successfully.", "success")
+        return redirect(url_for("users"))
+    
+    locations = Depot.query.order_by(Depot.name.asc()).all()
+    return render_template("user_form.html", user=user, all_roles=ALL_ROLES, locations=locations)
+
 # ---------- CLI for DB ----------
 @app.cli.command("init-db")
 def init_db():
@@ -2115,19 +2223,23 @@ def create_user():
     print("\nAvailable roles:")
     print("1. Warehouse Staff")
     print("2. Field Personnel")
-    print("3. Inventory Manager")
-    print("4. Executive Management")
-    print("5. System Administrator")
-    print("6. Auditor")
+    print("3. Logistics Officer")
+    print("4. Logistics Manager")
+    print("5. Executive Management")
+    print("6. System Administrator")
+    print("7. Auditor")
+    print("8. Distributor")
     
-    role_choice = input("\nSelect role (1-6): ").strip()
+    role_choice = input("\nSelect role (1-8): ").strip()
     role_map = {
         "1": ROLE_WAREHOUSE_STAFF,
         "2": ROLE_FIELD_PERSONNEL,
-        "3": ROLE_LOGISTICS_MANAGER,
-        "4": ROLE_EXECUTIVE,
-        "5": ROLE_ADMIN,
-        "6": ROLE_AUDITOR
+        "3": ROLE_LOGISTICS_OFFICER,
+        "4": ROLE_LOGISTICS_MANAGER,
+        "5": ROLE_EXECUTIVE,
+        "6": ROLE_ADMIN,
+        "7": ROLE_AUDITOR,
+        "8": ROLE_DISTRIBUTOR
     }
     
     if role_choice not in role_map:
