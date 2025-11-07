@@ -192,6 +192,20 @@ login_manager.login_message_category = "warning"
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# ---------- Context Processor ----------
+@app.context_processor
+def inject_notification_count():
+    """Inject unread notification count for distributors into all templates"""
+    unread_count = 0
+    if current_user.is_authenticated and current_user.role == "DISTRIBUTOR":
+        distributor = Distributor.query.filter_by(user_id=current_user.id).first()
+        if distributor:
+            unread_count = DistributorNotification.query.filter_by(
+                distributor_id=distributor.id,
+                is_read=False
+            ).count()
+    return dict(unread_notification_count=unread_count)
+
 # ---------- Role Constants ----------
 ROLE_WAREHOUSE_STAFF = "WAREHOUSE_STAFF"
 ROLE_FIELD_PERSONNEL = "FIELD_PERSONNEL"
@@ -1428,16 +1442,19 @@ def distributor_needs_lists():
     packages = DistributionPackage.query.filter_by(distributor_id=distributor.id)\
                                         .order_by(DistributionPackage.created_at.desc()).all()
     
-    # Get unread notifications
-    unread_notifications = DistributorNotification.query.filter_by(
-        distributor_id=distributor.id,
-        is_read=False
+    # Get all notifications (unread and read)
+    all_notifications = DistributorNotification.query.filter_by(
+        distributor_id=distributor.id
     ).order_by(DistributorNotification.created_at.desc()).all()
+    
+    # Separate unread notifications
+    unread_notifications = [n for n in all_notifications if not n.is_read]
     
     return render_template("distributor_needs_lists.html", 
                          packages=packages, 
                          distributor=distributor,
-                         notifications=unread_notifications)
+                         notifications=all_notifications,
+                         unread_notifications=unread_notifications)
 
 @app.route("/my-needs-lists/create", methods=["GET", "POST"])
 @role_required("DISTRIBUTOR")
@@ -1520,6 +1537,43 @@ def distributor_create_needs_list():
                          items=items, 
                          events=events,
                          distributor=distributor)
+
+@app.route("/notifications/mark-read/<int:notification_id>", methods=["POST"])
+@role_required("DISTRIBUTOR")
+def mark_notification_read(notification_id):
+    """Mark a notification as read"""
+    notification = DistributorNotification.query.get_or_404(notification_id)
+    
+    # Verify the notification belongs to the current user's distributor
+    distributor = Distributor.query.filter_by(user_id=current_user.id).first()
+    if not distributor or notification.distributor_id != distributor.id:
+        flash("Unauthorized access to notification.", "danger")
+        return redirect(url_for("dashboard"))
+    
+    notification.is_read = True
+    db.session.commit()
+    
+    flash("Notification marked as read.", "success")
+    return redirect(request.referrer or url_for("distributor_needs_lists"))
+
+@app.route("/notifications/mark-all-read", methods=["POST"])
+@role_required("DISTRIBUTOR")
+def mark_all_notifications_read():
+    """Mark all notifications as read for current distributor"""
+    distributor = Distributor.query.filter_by(user_id=current_user.id).first()
+    
+    if not distributor:
+        flash("No distributor profile found.", "danger")
+        return redirect(url_for("dashboard"))
+    
+    DistributorNotification.query.filter_by(
+        distributor_id=distributor.id,
+        is_read=False
+    ).update({"is_read": True})
+    db.session.commit()
+    
+    flash("All notifications marked as read.", "success")
+    return redirect(url_for("distributor_needs_lists"))
 
 @app.route("/disaster-events")
 @role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER)

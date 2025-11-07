@@ -96,7 +96,14 @@
           
           {# My Needs Lists - visible to distributors #}
           {% if current_user.role == 'DISTRIBUTOR' %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('distributor_needs_lists') }}"><i class="bi bi-clipboard-check me-1"></i>My Needs Lists</a></li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('distributor_needs_lists') }}">
+                <i class="bi bi-clipboard-check me-1"></i>My Needs Lists
+                {% if unread_notification_count > 0 %}
+                  <span class="badge bg-warning text-dark ms-1">{{ unread_notification_count }}</span>
+                {% endif %}
+              </a>
+            </li>
           {% endif %}
           
           {# Events - visible to managers #}
