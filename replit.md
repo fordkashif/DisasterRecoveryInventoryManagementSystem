@@ -54,9 +54,10 @@ Implements Flask-Login with role-based access control (RBAC) for eight user role
 
 **Role Hierarchy and Responsibilities:**
 - **ADMIN**: Full system access including user management, can add/remove users and assign roles.
-- **LOGISTICS_MANAGER**: Supervises logistics operations, allocates items, approves packages, and reviews work done by Logistics Officers. Part of ODPEM (Office of Disaster Preparedness and Emergency Management).
-- **LOGISTICS_OFFICER**: Creates draft allocations for needs lists, manages inventory data, and submits work for approval by Logistics Manager. Part of ODPEM.
-- **WAREHOUSE_STAFF, FIELD_PERSONNEL, EXECUTIVE, AUDITOR**: Operational and oversight roles.
+- **LOGISTICS_MANAGER**: Supervises logistics operations, allocates items, approves packages, and reviews work done by Logistics Officers. Can dispatch and deliver packages. Part of ODPEM (Office of Disaster Preparedness and Emergency Management).
+- **LOGISTICS_OFFICER**: Creates draft allocations for needs lists, manages inventory data, submits work for approval by Logistics Manager, and can dispatch and deliver packages. Part of ODPEM.
+- **WAREHOUSE_STAFF**: Can dispatch and deliver packages.
+- **FIELD_PERSONNEL, EXECUTIVE, AUDITOR**: Operational and oversight roles.
 - **DISTRIBUTOR**: Self-service access to create needs lists, view package status, and respond to partial fulfillment notifications.
 
 ### File Storage and Attachments

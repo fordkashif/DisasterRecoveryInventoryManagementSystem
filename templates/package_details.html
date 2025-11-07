@@ -262,7 +262,7 @@
       <div class="card sticky-top" style="top: 1rem;">
         <div class="card-header"><i class="bi bi-gear me-2"></i>Workflow Actions</div>
         <div class="card-body">
-          {% if current_user.role in ['ADMIN', 'INVENTORY_MANAGER'] %}
+          {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER'] %}
             
             <!-- Fulfill Needs List -->
             {% if package.status == 'Draft' %}
@@ -314,7 +314,7 @@
 
           {% endif %}
 
-          {% if current_user.role in ['ADMIN', 'INVENTORY_MANAGER', 'WAREHOUSE_STAFF'] %}
+          {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER', 'WAREHOUSE_STAFF'] %}
             
             <!-- Dispatch Package -->
             {% if package.status == 'Approved' %}
