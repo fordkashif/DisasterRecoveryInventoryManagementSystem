@@ -12,12 +12,21 @@
         <thead class="table-light">
           <tr>
             <th>
-              <a href="{{ url_for('transactions', sort_by='created_at', order='asc' if sort_by == 'created_at' and order == 'desc' else 'desc') }}" class="text-decoration-none text-dark">
+              <div class="d-flex align-items-center gap-2">
                 When
-                {% if sort_by == 'created_at' %}
-                  <i class="bi bi-arrow-{% if order == 'asc' %}up{% else %}down{% endif %}"></i>
-                {% endif %}
-              </a>
+                <div class="btn-group btn-group-sm" role="group">
+                  <a href="{{ url_for('transactions', sort_by='created_at', order='desc') }}" 
+                     class="btn btn-outline-secondary {% if order == 'desc' %}active{% endif %}" 
+                     title="Newest First">
+                    <i class="bi bi-arrow-down"></i>
+                  </a>
+                  <a href="{{ url_for('transactions', sort_by='created_at', order='asc') }}" 
+                     class="btn btn-outline-secondary {% if order == 'asc' %}active{% endif %}" 
+                     title="Oldest First">
+                    <i class="bi bi-arrow-up"></i>
+                  </a>
+                </div>
+              </div>
             </th>
             <th>
               <a href="{{ url_for('transactions', sort_by='type', order='asc' if sort_by == 'type' and order == 'desc' else 'desc') }}" class="text-decoration-none text-dark">
