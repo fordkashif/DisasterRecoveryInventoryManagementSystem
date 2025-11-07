@@ -51,6 +51,13 @@ class Distributor(db.Model):
     name = db.Column(db.String(200), nullable=False)
     contact = db.Column(db.String(200), nullable=True)
     organization = db.Column(db.String(200), nullable=True)
+    parish = db.Column(db.String(100), nullable=True)
+    address = db.Column(db.String(500), nullable=True)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Link to distributor login account
+    
+    user = db.relationship("User", backref="distributor_profile")
 
 class DisasterEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -88,7 +95,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(200), unique=True, nullable=False, index=True)
     full_name = db.Column(db.String(200), nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(50), nullable=False)  # WAREHOUSE_STAFF, FIELD_PERSONNEL, INVENTORY_MANAGER, EXECUTIVE, ADMIN, AUDITOR
+    role = db.Column(db.String(50), nullable=False)  # WAREHOUSE_STAFF, FIELD_PERSONNEL, INVENTORY_MANAGER, EXECUTIVE, ADMIN, AUDITOR, DISTRIBUTOR
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     assigned_location_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)  # For warehouse staff
     last_login_at = db.Column(db.DateTime, nullable=True)
@@ -960,13 +967,44 @@ def distributor_new():
         
         contact = request.form.get("contact", "").strip() or None
         organization = request.form.get("organization", "").strip() or None
+        parish = request.form.get("parish", "").strip() or None
+        address = request.form.get("address", "").strip() or None
         
-        distributor = Distributor(name=name, contact=contact, organization=organization)
+        # Handle GPS coordinates
+        latitude = None
+        longitude = None
+        if request.form.get("latitude"):
+            try:
+                latitude = float(request.form.get("latitude"))
+            except ValueError:
+                flash("Invalid latitude value.", "warning")
+        if request.form.get("longitude"):
+            try:
+                longitude = float(request.form.get("longitude"))
+            except ValueError:
+                flash("Invalid longitude value.", "warning")
+        
+        distributor = Distributor(
+            name=name, 
+            contact=contact, 
+            organization=organization,
+            parish=parish,
+            address=address,
+            latitude=latitude,
+            longitude=longitude
+        )
         db.session.add(distributor)
         db.session.commit()
         flash(f"Distributor '{name}' created successfully.", "success")
         return redirect(url_for("distributors"))
-    return render_template("distributor_form.html", distributor=None)
+    
+    # Get list of Jamaican parishes for dropdown
+    parishes = [
+        "Kingston", "St. Andrew", "St. Thomas", "Portland", "St. Mary",
+        "St. Ann", "Trelawny", "St. James", "Hanover", "Westmoreland",
+        "St. Elizabeth", "Manchester", "Clarendon", "St. Catherine"
+    ]
+    return render_template("distributor_form.html", distributor=None, parishes=parishes)
 
 @app.route("/distributors/<int:distributor_id>/edit", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_INVENTORY_MANAGER)
@@ -981,10 +1019,39 @@ def distributor_edit(distributor_id):
         distributor.name = name
         distributor.contact = request.form.get("contact", "").strip() or None
         distributor.organization = request.form.get("organization", "").strip() or None
+        distributor.parish = request.form.get("parish", "").strip() or None
+        distributor.address = request.form.get("address", "").strip() or None
+        
+        # Handle GPS coordinates
+        if request.form.get("latitude"):
+            try:
+                distributor.latitude = float(request.form.get("latitude"))
+            except ValueError:
+                flash("Invalid latitude value.", "warning")
+                distributor.latitude = None
+        else:
+            distributor.latitude = None
+            
+        if request.form.get("longitude"):
+            try:
+                distributor.longitude = float(request.form.get("longitude"))
+            except ValueError:
+                flash("Invalid longitude value.", "warning")
+                distributor.longitude = None
+        else:
+            distributor.longitude = None
+        
         db.session.commit()
         flash(f"Distributor updated successfully.", "success")
         return redirect(url_for("distributors"))
-    return render_template("distributor_form.html", distributor=distributor)
+    
+    # Get list of Jamaican parishes for dropdown
+    parishes = [
+        "Kingston", "St. Andrew", "St. Thomas", "Portland", "St. Mary",
+        "St. Ann", "Trelawny", "St. James", "Hanover", "Westmoreland",
+        "St. Elizabeth", "Manchester", "Clarendon", "St. Catherine"
+    ]
+    return render_template("distributor_form.html", distributor=distributor, parishes=parishes)
 
 # ---------- Distribution Package Routes ----------
 
