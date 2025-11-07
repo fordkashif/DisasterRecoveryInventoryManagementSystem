@@ -1540,16 +1540,19 @@ def package_fulfill(package_id):
         available_depots = []
         for loc in locations:
             stock_qty = stock_map.get((pkg_item.item_sku, loc.id), 0)
-            # Include depot if it has stock OR if there's an existing allocation (for editing)
-            has_allocation = any(alloc.depot_id == loc.id for alloc in pkg_item.allocations)
+            # Find existing allocation for this depot
+            existing_allocation = next((alloc for alloc in pkg_item.allocations if alloc.depot_id == loc.id), None)
+            allocated_qty = existing_allocation.allocated_qty if existing_allocation else 0
             
-            if stock_qty > 0 or has_allocation:
+            # Include depot if it has stock OR if there's an existing allocation (for editing)
+            if stock_qty > 0 or existing_allocation:
                 available_depots.append({
                     'depot': loc,
                     'depot_id': loc.id,
                     'depot_name': loc.name,
                     'available_qty': stock_qty,
-                    'has_allocation': has_allocation
+                    'allocated_qty': allocated_qty,
+                    'has_allocation': existing_allocation is not None
                 })
         
         item_depot_options[pkg_item.id] = available_depots

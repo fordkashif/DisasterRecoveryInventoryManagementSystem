@@ -87,12 +87,7 @@
                   {% set location = depot_option['depot'] %}
                   {% set available = depot_option['available_qty'] %}
                   {% set has_allocation = depot_option['has_allocation'] %}
-                  {% set allocated = 0 %}
-                  {% for alloc in pkg_item.allocations %}
-                    {% if alloc.depot_id == location.id %}
-                      {% set allocated = alloc.allocated_qty %}
-                    {% endif %}
-                  {% endfor %}
+                  {% set allocated = depot_option['allocated_qty'] %}
                   {% set html_max = allocated if (available == 0 and has_allocation) else available %}
                   
                   <div class="card mb-2 {% if available > 0 %}border-success{% else %}border-warning{% endif %}">
