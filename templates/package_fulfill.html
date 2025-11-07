@@ -80,10 +80,12 @@
                             <i class="bi {% if available > 0 %}bi-check-circle-fill text-success{% else %}bi-exclamation-triangle-fill text-warning{% endif %} me-2"></i>
                             <div>
                               <strong>{{ location.name }}</strong>
-                              <div class="small {% if available > 0 %}text-success{% else %}text-warning{% endif %}">
+                              <div class="small">
                                 <i class="bi bi-box"></i> 
-                                <span class="current-stock-{{ pkg_item.id }}-{{ location.id }}">{{ available }}</span> in stock
-                                <span class="remaining-stock-{{ pkg_item.id }}-{{ location.id }}" style="display:none;"></span>
+                                <span class="stock-display-{{ pkg_item.id }}-{{ location.id }}">
+                                  <span class="current-stock-{{ pkg_item.id }}-{{ location.id }} {% if available > 0 %}text-success{% else %}text-warning{% endif %}">{{ available }} in stock</span>
+                                  <span class="remaining-stock-{{ pkg_item.id }}-{{ location.id }}" style="display:none;"></span>
+                                </span>
                                 {% if has_allocation and available == 0 %}
                                 <div><small class="text-muted"><i class="bi bi-info-circle"></i> Previously allocated - edit or clear</small></div>
                                 {% endif %}
@@ -211,6 +213,8 @@ function validateAndUpdate(itemId, requestedQty) {
   const inputs = document.querySelectorAll(`.depot-input-${itemId}`);
   let total = 0;
   
+  console.log(`Updating allocations for item ${itemId}`);
+  
   // Update each depot's remaining stock display
   inputs.forEach(input => {
     let value = parseInt(input.value) || 0;
@@ -231,7 +235,7 @@ function validateAndUpdate(itemId, requestedQty) {
     
     total += value;
     
-    // Update remaining stock display (live update)
+    // Update remaining stock display at individual depot (live update)
     const currentStockSpan = document.querySelector(`.current-stock-${itemId}-${depotId}`);
     const remainingStockSpan = document.querySelector(`.remaining-stock-${itemId}-${depotId}`);
     const allocatedQty = value;
@@ -246,19 +250,32 @@ function validateAndUpdate(itemId, requestedQty) {
     
     const remaining = originalStock - allocatedQty;
     
+    console.log(`  Depot ${depotId}: Original=${originalStock}, Allocated=${allocatedQty}, Remaining=${remaining}`);
+    
     if (currentStockSpan && remainingStockSpan) {
       if (allocatedQty > 0) {
+        // Hide original stock, show live remaining/allocated
         currentStockSpan.style.display = 'none';
         remainingStockSpan.style.display = 'inline';
-        remainingStockSpan.innerHTML = `<strong>${remaining} remaining</strong> (${allocatedQty} allocated)`;
-        remainingStockSpan.className = remaining >= 0 ? 'text-primary' : 'text-danger';
+        
+        // Format: "X remaining (Y allocated)" with color coding
+        const remainingClass = remaining >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
+        const allocatedClass = 'text-primary';
+        remainingStockSpan.innerHTML = `<span class="${remainingClass}">${remaining} remaining</span> <span class="text-muted">|</span> <span class="${allocatedClass}">${allocatedQty} allocated</span>`;
+        
+        console.log(`    ✓ Updated depot ${depotId} display: ${remaining} remaining, ${allocatedQty} allocated`);
       } else {
+        // Show original stock when no allocation
         currentStockSpan.style.display = 'inline';
         remainingStockSpan.style.display = 'none';
+        console.log(`    ✓ Reset depot ${depotId} to show original stock: ${originalStock}`);
       }
+    } else {
+      console.warn(`    ⚠ Missing UI elements for depot ${depotId}`);
     }
   });
   
+  console.log(`Total allocated for item ${itemId}: ${total} / ${requestedQty}`);
   updateProgressBar(itemId, total, requestedQty);
 }
 
