@@ -85,10 +85,6 @@
             <li class="nav-item"><a class="nav-link" href="{{ url_for('depots') }}"><i class="bi bi-geo-alt me-1"></i>Depots</a></li>
           {% endif %}
           
-          {# Distributors - visible to logistics staff #}
-          {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER'] %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('distributors') }}"><i class="bi bi-people me-1"></i>Distributors</a></li>
-          {% endif %}
           
           {# Distribution Packages - visible to logistics staff and warehouse staff #}
           {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER', 'WAREHOUSE_STAFF'] %}
@@ -107,17 +103,6 @@
             {% endif %}
           {% endif %}
           
-          {# My Needs Lists - visible to distributors #}
-          {% if current_user.role == 'DISTRIBUTOR' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('distributor_needs_lists') }}">
-                <i class="bi bi-clipboard-check me-1"></i>My Needs Lists
-                {% if unread_notification_count > 0 %}
-                  <span class="badge bg-warning text-dark ms-1">{{ unread_notification_count }}</span>
-                {% endif %}
-              </a>
-            </li>
-          {% endif %}
           
           {# Events - visible to logistics staff #}
           {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER'] %}
