@@ -1,24 +1,84 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row">
-  <div class="col-md-6">
-    <h3>{% if depot %}Edit Depot{% else %}New Depot{% endif %}</h3>
+  <div class="col-md-8">
+    <h3><i class="bi bi-building me-2"></i>{% if depot %}Edit Depot{% else %}New Depot{% endif %}</h3>
     
     <form method="post">
       <div class="mb-3">
-        <label class="form-label">Depot Name *</label>
+        <label class="form-label fw-bold">Depot Name <span class="text-danger">*</span></label>
         <input class="form-control" type="text" name="name" 
                value="{{ depot.name if depot else '' }}" 
                placeholder="e.g., St. Andrew Depot" required>
       </div>
       
+      <div class="mb-3">
+        <label class="form-label fw-bold">Hub Type <span class="text-danger">*</span></label>
+        <select class="form-select" name="hub_type" id="hub_type" required onchange="toggleParentHub()">
+          <option value="">-- Select Hub Type --</option>
+          <option value="MAIN" {% if depot and depot.hub_type == 'MAIN' %}selected{% endif %}>MAIN - Central Distribution Hub</option>
+          <option value="SUB" {% if depot and depot.hub_type == 'SUB' %}selected{% endif %}>SUB - Regional Hub (requires parent)</option>
+          <option value="AGENCY" {% if depot and depot.hub_type == 'AGENCY' %}selected{% endif %}>AGENCY - Agency Hub (requires parent)</option>
+        </select>
+        <small class="text-muted">
+          <i class="bi bi-info-circle"></i> 
+          <strong>MAIN</strong> hubs can approve transfers. <strong>SUB/AGENCY</strong> hubs need approval from their parent MAIN hub.
+        </small>
+      </div>
+      
+      <div class="mb-3" id="parent_hub_section" style="display: none;">
+        <label class="form-label fw-bold">Parent Hub <span class="text-danger">*</span></label>
+        <select class="form-select" name="parent_location_id" id="parent_location_id">
+          <option value="">-- Select Parent MAIN Hub --</option>
+          {% for main_hub in main_hubs %}
+          <option value="{{ main_hub.id }}" {% if depot and depot.parent_location_id == main_hub.id %}selected{% endif %}>
+            {{ main_hub.name }}
+          </option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">
+          <i class="bi bi-diagram-3"></i> This hub will report to the selected MAIN hub for transfer approvals.
+        </small>
+      </div>
+      
+      <div class="alert alert-info">
+        <i class="bi bi-lightbulb me-2"></i>
+        <strong>Hub Hierarchy:</strong> 
+        MAIN hubs can execute transfers immediately. SUB and AGENCY hubs must submit transfer requests that require MAIN hub approval.
+      </div>
+      
       <div class="d-flex gap-2">
         <button class="btn btn-primary" type="submit">
-          {% if depot %}Update{% else %}Create{% endif %}
+          <i class="bi bi-check-circle me-1"></i>
+          {% if depot %}Update Depot{% else %}Create Depot{% endif %}
         </button>
-        <a class="btn btn-outline-secondary" href="{{ url_for('depots') }}">Cancel</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('depots') }}">
+          <i class="bi bi-x-circle me-1"></i>Cancel
+        </a>
       </div>
     </form>
   </div>
 </div>
+
+<script>
+function toggleParentHub() {
+  const hubType = document.getElementById('hub_type').value;
+  const parentSection = document.getElementById('parent_hub_section');
+  const parentSelect = document.getElementById('parent_location_id');
+  
+  if (hubType === 'SUB' || hubType === 'AGENCY') {
+    parentSection.style.display = 'block';
+    parentSelect.required = true;
+  } else {
+    parentSection.style.display = 'none';
+    parentSelect.required = false;
+    parentSelect.value = '';
+  }
+}
+
+// Show parent hub selector on page load if needed
+document.addEventListener('DOMContentLoaded', function() {
+  toggleParentHub();
+});
+</script>
 {% endblock %}

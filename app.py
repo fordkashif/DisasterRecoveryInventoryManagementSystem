@@ -1053,9 +1053,28 @@ def depots():
 def depot_new():
     if request.method == "POST":
         name = request.form["name"].strip()
+        hub_type = request.form.get("hub_type", "MAIN")
+        parent_location_id = request.form.get("parent_location_id")
+        
         if not name:
             flash("Depot name is required.", "danger")
             return redirect(url_for("depot_new"))
+        
+        if not hub_type:
+            flash("Hub type is required.", "danger")
+            return redirect(url_for("depot_new"))
+        
+        # Validate parent hub requirement for SUB/AGENCY hubs
+        if hub_type in ['SUB', 'AGENCY']:
+            if not parent_location_id:
+                flash(f"{hub_type} hubs require a parent MAIN hub.", "danger")
+                return redirect(url_for("depot_new"))
+            
+            # Verify parent is a MAIN hub
+            parent_hub = Depot.query.get(parent_location_id)
+            if not parent_hub or parent_hub.hub_type != 'MAIN':
+                flash("Parent hub must be a MAIN hub.", "danger")
+                return redirect(url_for("depot_new"))
         
         # Check for duplicates
         existing = Depot.query.filter_by(name=name).first()
@@ -1063,12 +1082,20 @@ def depot_new():
             flash(f"Depot '{name}' already exists.", "warning")
             return redirect(url_for("depots"))
         
-        location = Depot(name=name)
+        # Create new depot with hub hierarchy
+        location = Depot(
+            name=name,
+            hub_type=hub_type,
+            parent_location_id=int(parent_location_id) if parent_location_id else None
+        )
         db.session.add(location)
         db.session.commit()
-        flash(f"Depot '{name}' created successfully.", "success")
+        flash(f"Depot '{name}' created successfully as a {hub_type} hub.", "success")
         return redirect(url_for("depots"))
-    return render_template("depot_form.html", location=None)
+    
+    # GET request - provide list of MAIN hubs for parent selection
+    main_hubs = Depot.query.filter_by(hub_type='MAIN').order_by(Depot.name.asc()).all()
+    return render_template("depot_form.html", depot=None, main_hubs=main_hubs)
 
 @app.route("/locations/<int:location_id>/edit", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER)
@@ -1076,9 +1103,33 @@ def depot_edit(location_id):
     location = Depot.query.get_or_404(location_id)
     if request.method == "POST":
         name = request.form["name"].strip()
+        hub_type = request.form.get("hub_type", "MAIN")
+        parent_location_id = request.form.get("parent_location_id")
+        
         if not name:
             flash("Depot name is required.", "danger")
             return redirect(url_for("depot_edit", location_id=location_id))
+        
+        if not hub_type:
+            flash("Hub type is required.", "danger")
+            return redirect(url_for("depot_edit", location_id=location_id))
+        
+        # Validate parent hub requirement for SUB/AGENCY hubs
+        if hub_type in ['SUB', 'AGENCY']:
+            if not parent_location_id:
+                flash(f"{hub_type} hubs require a parent MAIN hub.", "danger")
+                return redirect(url_for("depot_edit", location_id=location_id))
+            
+            # Prevent self-referencing
+            if int(parent_location_id) == location_id:
+                flash("A depot cannot be its own parent hub.", "danger")
+                return redirect(url_for("depot_edit", location_id=location_id))
+            
+            # Verify parent is a MAIN hub
+            parent_hub = Depot.query.get(parent_location_id)
+            if not parent_hub or parent_hub.hub_type != 'MAIN':
+                flash("Parent hub must be a MAIN hub.", "danger")
+                return redirect(url_for("depot_edit", location_id=location_id))
         
         # Check for duplicates (excluding current location)
         existing = Depot.query.filter(Depot.name == name, Depot.id != location_id).first()
@@ -1086,11 +1137,18 @@ def depot_edit(location_id):
             flash(f"Depot '{name}' already exists.", "warning")
             return redirect(url_for("depot_edit", location_id=location_id))
         
+        # Update depot with hub hierarchy
         location.name = name
+        location.hub_type = hub_type
+        location.parent_location_id = int(parent_location_id) if parent_location_id else None
+        
         db.session.commit()
-        flash(f"Depot updated successfully.", "success")
+        flash(f"Depot '{name}' updated successfully as a {hub_type} hub.", "success")
         return redirect(url_for("depots"))
-    return render_template("depot_form.html", location=location)
+    
+    # GET request - provide list of MAIN hubs for parent selection
+    main_hubs = Depot.query.filter_by(hub_type='MAIN').order_by(Depot.name.asc()).all()
+    return render_template("depot_form.html", depot=location, main_hubs=main_hubs)
 
 @app.route("/locations/<int:location_id>/inventory")
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_WAREHOUSE_STAFF)
