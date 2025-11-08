@@ -129,10 +129,11 @@ class User(UserMixin, db.Model):
         return str(self.id)
 
 class DistributionPackage(db.Model):
-    """Distribution packages for relief operations"""
+    """Distribution packages for relief operations delivered to AGENCY hubs"""
     id = db.Column(db.Integer, primary_key=True)
     package_number = db.Column(db.String(64), unique=True, nullable=False, index=True)  # e.g., PKG-000001
-    assigned_location_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)  # Warehouse/outpost
+    recipient_agency_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)  # AGENCY hub that will receive this package
+    assigned_location_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)  # Warehouse/outpost (deprecated, kept for compatibility)
     event_id = db.Column(db.Integer, db.ForeignKey("disaster_event.id"), nullable=True)
     status = db.Column(db.String(50), nullable=False, default="Draft")  # Draft, Under Review, Approved, Dispatched, Delivered
     is_partial = db.Column(db.Boolean, default=False, nullable=False)  # True if stock insufficient for full fulfillment
@@ -146,7 +147,8 @@ class DistributionPackage(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
-    assigned_location = db.relationship("Depot")
+    recipient_agency = db.relationship("Depot", foreign_keys=[recipient_agency_id])
+    assigned_location = db.relationship("Depot", foreign_keys=[assigned_location_id])
     event = db.relationship("DisasterEvent")
     items = db.relationship("PackageItem", back_populates="package", cascade="all, delete-orphan")
     status_history = db.relationship("PackageStatusHistory", back_populates="package", cascade="all, delete-orphan")
@@ -156,7 +158,7 @@ class PackageItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     package_id = db.Column(db.Integer, db.ForeignKey("distribution_package.id"), nullable=False)
     item_sku = db.Column(db.String(64), db.ForeignKey("item.sku"), nullable=False)
-    requested_qty = db.Column(db.Integer, nullable=False)  # Quantity requested by distributor
+    requested_qty = db.Column(db.Integer, nullable=False)  # Quantity requested for agency
     allocated_qty = db.Column(db.Integer, nullable=False, default=0)  # Total quantity allocated (sum of all depot allocations)
     
     package = db.relationship("DistributionPackage", back_populates="items")
@@ -1116,10 +1118,15 @@ def packages():
 @app.route("/packages/create", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER)
 def package_create():
-    """Create a new distribution package"""
+    """Create a new distribution package for an AGENCY hub"""
     if request.method == "POST":
+        recipient_agency_id = request.form.get("recipient_agency_id")
         event_id = request.form.get("event_id") or None
         notes = request.form.get("notes", "").strip() or None
+        
+        if not recipient_agency_id:
+            flash("Recipient agency is required.", "danger")
+            return redirect(url_for("package_create"))
         
         # Parse items from form (dynamic fields: item_sku_N, item_requested_N, depot_allocation_N_DEPOT)
         items_data = []
@@ -1200,6 +1207,7 @@ def package_create():
         # Create package
         package = DistributionPackage(
             package_number=generate_package_number(),
+            recipient_agency_id=int(recipient_agency_id),
             event_id=int(event_id) if event_id else None,
             status="Draft",
             is_partial=is_partial,
@@ -1238,13 +1246,16 @@ def package_create():
         return redirect(url_for("package_details", package_id=package.id))
     
     # GET request
+    # Get AGENCY hubs as potential recipients
+    agency_hubs = Depot.query.filter_by(hub_type='AGENCY').order_by(Depot.name).all()
     events = DisasterEvent.query.filter_by(status="Active").order_by(DisasterEvent.start_date.desc()).all()
     items = Item.query.order_by(Item.name).all()
-    # Exclude AGENCY hubs from package fulfillment - they're independent agencies
+    # Exclude AGENCY hubs from package fulfillment source - they're recipients, not sources
     locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name).all()
     stock_map = get_stock_by_location()
     
     return render_template("package_form.html", 
+                         agency_hubs=agency_hubs,
                          events=events,
                          items=items,
                          locations=locations,
