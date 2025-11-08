@@ -361,7 +361,8 @@ def check_stock_availability(items_requested):
         }
     """
     stock_map = get_stock_by_location()
-    locations = Depot.query.all()
+    # Exclude AGENCY hubs from overall stock availability calculations
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').all()
     
     result_items = []
     is_partial = False
@@ -543,7 +544,8 @@ def dashboard():
     
     # KPIs - Inventory
     total_items = Item.query.count()
-    locations = Depot.query.order_by(Depot.name.asc()).all()
+    # Exclude AGENCY hubs from overall inventory displays
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
     
     # KPIs - Operations
     total_donors = Donor.query.count()
@@ -713,7 +715,8 @@ def items():
     
     # Get stock by location for all items
     stock_map = get_stock_by_location()
-    locations = Depot.query.order_by(Depot.name.asc()).all()
+    # Exclude AGENCY hubs from overall inventory displays
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
     
     return render_template("items.html", items=all_items, q=q, cat=cat, 
                           locations=locations, stock_map=stock_map)
@@ -981,7 +984,8 @@ def transactions():
 @app.route("/reports/stock")
 @login_required
 def report_stock():
-    locations = Depot.query.order_by(Depot.name.asc()).all()
+    # Exclude AGENCY hubs from overall stock reports
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
     items = Item.query.order_by(Item.category.asc(), Item.name.asc()).all()
     stock_map = get_stock_by_location()
     
@@ -1349,7 +1353,8 @@ def package_create():
         items_data = []
         item_index = 0
         stock_map = get_stock_by_location()
-        locations = Depot.query.all()
+        # Exclude AGENCY hubs from package fulfillment - they're independent agencies
+        locations = Depot.query.filter(Depot.hub_type != 'AGENCY').all()
         depot_name_to_id = {loc.name: loc.id for loc in locations}
         
         while True:
@@ -1465,7 +1470,8 @@ def package_create():
     distributors = Distributor.query.order_by(Distributor.name).all()
     events = DisasterEvent.query.filter_by(status="Active").order_by(DisasterEvent.start_date.desc()).all()
     items = Item.query.order_by(Item.name).all()
-    locations = Depot.query.order_by(Depot.name).all()
+    # Exclude AGENCY hubs from package fulfillment - they're independent agencies
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name).all()
     stock_map = get_stock_by_location()
     
     return render_template("package_form.html", 
@@ -1751,7 +1757,8 @@ def package_fulfill(package_id):
     
     if request.method == "POST":
         stock_map = get_stock_by_location()
-        locations = Depot.query.all()
+        # Exclude AGENCY hubs from package fulfillment - they're independent agencies
+        locations = Depot.query.filter(Depot.hub_type != 'AGENCY').all()
         
         # Process depot allocations for each item
         for pkg_item in package.items:
@@ -1815,7 +1822,8 @@ def package_fulfill(package_id):
     
     # GET request - show fulfillment form
     items = Item.query.order_by(Item.name).all()
-    locations = Depot.query.order_by(Depot.name).all()
+    # Exclude AGENCY hubs from package fulfillment - they're independent agencies
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name).all()
     stock_map = get_stock_by_location()
     events = DisasterEvent.query.filter_by(status="Active").order_by(DisasterEvent.start_date.desc()).all()
     
@@ -1858,7 +1866,8 @@ def package_details(package_id):
     
     # Get stock availability for display
     stock_map = get_stock_by_location()
-    locations = Depot.query.all()
+    # Exclude AGENCY hubs from overall stock calculations
+    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').all()
     
     # Calculate current stock and stock by depot for each item
     for pkg_item in package.items:

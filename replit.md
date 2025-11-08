@@ -39,7 +39,7 @@ Comprehensive validation prevents stock levels from falling below zero during di
 Implements a role-based orchestration model with three hub types for managing stock distribution and approvals:
 - **MAIN Hub**: Central distribution hubs (e.g., Pimento JDF) act as orchestrators for all SUB hubs with authority to execute transfers immediately without approval. Any MAIN hub can view and approve transfer requests from any SUB or AGENCY hub.
 - **SUB Hub**: Regional distribution hubs (e.g., Trelawny, Haining) governed by all MAIN hubs collectively. No parent assignment capability. Transfer requests require approval from any MAIN hub before execution.
-- **AGENCY Hub**: Independent agency-operated hubs (e.g., Montego Bay, Pimento) that can request items from MAIN hubs. Completely independent with no parent hub assignment capability.
+- **AGENCY Hub**: Independent agency-operated hubs (e.g., Montego Bay, Pimento) that can request items from MAIN hubs. Completely independent with no parent hub assignment capability. AGENCY hub stock is excluded from overall ODPEM inventory displays but can receive stock via approved transfers.
 
 **Hub Orchestration Features:**
 - Role-based governance: SUB hubs are orchestrated by ALL MAIN hubs, not a specific parent
@@ -47,6 +47,7 @@ Implements a role-based orchestration model with three hub types for managing st
 - Transfer approval workflow based purely on hub_type (MAIN transfers immediate, SUB/AGENCY require MAIN approval)
 - No parent hub assignments for any hub type - all hubs operate independently with role-based orchestration
 - Hub Status tracking (Active/Inactive) with automatic operational timestamp recording when activated
+- **AGENCY Hub Inventory Exclusion**: AGENCY hubs are excluded from overall inventory displays, stock summaries, distribution package fulfillment, and stock reports to maintain separation between ODPEM and independent agency inventories. AGENCY hubs remain visible in hub management and can participate in transfers and receive donated stock.
 
 ### Stock Transfer Between Depots with Approval Workflow
 Enables logistics staff to transfer stock between depots with hub-based approval rules:
