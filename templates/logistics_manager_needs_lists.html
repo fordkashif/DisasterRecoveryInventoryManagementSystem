@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Needs Lists - Logistics Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4"><i class="bi bi-clipboard-check me-2"></i>Needs Lists - Manager Review</h2>
+
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#awaiting">
+        Awaiting Approval {% if awaiting_approval %}<span class="badge bg-warning text-dark">{{ awaiting_approval|length }}</span>{% endif %}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#approved">
+        Approved/Fulfilled
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#rejected">
+        Rejected
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="awaiting">
+      {% if awaiting_approval %}
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>List Number</th>
+                  <th>Requesting Hub</th>
+                  <th>Priority</th>
+                  <th>Prepared By</th>
+                  <th>Prepared</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for needs_list in awaiting_approval %}
+                <tr>
+                  <td><a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}"><strong>{{ needs_list.list_number }}</strong></a></td>
+                  <td>{{ needs_list.agency_hub.name }} <small class="text-muted">({{ needs_list.agency_hub.hub_type }})</small></td>
+                  <td>
+                    {% if needs_list.priority == 'Urgent' %}<span class="badge bg-danger">Urgent</span>
+                    {% elif needs_list.priority == 'High' %}<span class="badge bg-warning text-dark">High</span>
+                    {% elif needs_list.priority == 'Medium' %}<span class="badge bg-info text-dark">Medium</span>
+                    {% else %}<span class="badge bg-secondary">Low</span>{% endif %}
+                  </td>
+                  <td>{{ needs_list.prepared_by }}</td>
+                  <td>{{ needs_list.prepared_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                  <td>
+                    <a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}" class="btn btn-sm btn-success">
+                      <i class="bi bi-check-circle me-1"></i>Review & Approve
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-secondary text-center">
+          <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+          <p class="mb-0">No needs lists awaiting your approval.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="approved">
+      {% if approved_lists %}
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>List Number</th>
+                  <th>Requesting Hub</th>
+                  <th>Status</th>
+                  <th>Approved</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for needs_list in approved_lists %}
+                <tr>
+                  <td><a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}"><strong>{{ needs_list.list_number }}</strong></a></td>
+                  <td>{{ needs_list.agency_hub.name }}</td>
+                  <td><span class="badge bg-success">{{ needs_list.status }}</span></td>
+                  <td>{{ needs_list.approved_at.strftime('%Y-%m-%d %H:%M') if needs_list.approved_at else '-' }}</td>
+                  <td>
+                    <a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-eye me-1"></i>View
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-secondary text-center">
+          <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+          <p class="mb-0">No approved needs lists yet.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="rejected">
+      {% if rejected_lists %}
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>List Number</th>
+                  <th>Requesting Hub</th>
+                  <th>Rejected</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for needs_list in rejected_lists %}
+                <tr>
+                  <td><a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}"><strong>{{ needs_list.list_number }}</strong></a></td>
+                  <td>{{ needs_list.agency_hub.name }}</td>
+                  <td>{{ needs_list.approved_at.strftime('%Y-%m-%d %H:%M') if needs_list.approved_at else '-' }}</td>
+                  <td>
+                    <a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-eye me-1"></i>View
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-secondary text-center">
+          <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+          <p class="mb-0">No rejected needs lists.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

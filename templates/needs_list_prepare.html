@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Prepare Fulfilment - {{ needs_list.list_number }}{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box-seam me-2"></i>Prepare Fulfilment - {{ needs_list.list_number }}</h2>
+    <a href="{{ url_for('needs_lists') }}" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  </div>
+  <div class="alert alert-info">
+    <strong>{{ needs_list.agency_hub.name }}</strong> ({{ needs_list.agency_hub.hub_type }}) - Assign quantities from ODPEM hubs
+  </div>
+  <form method="POST">
+    {% for item_entry in needs_list.items %}
+      <div class="card mb-3">
+        <div class="card-header bg-light">
+          <h5 class="mb-0">{{ item_entry.item.name }} <small class="text-muted">({{ item_entry.item.sku }})</small></h5>
+          <p class="mb-0 small">Requested: <strong>{{ item_entry.requested_qty }}</strong> {{ item_entry.item.unit }}
+          {% if item_entry.justification %}<br>Justification: {{ item_entry.justification }}{% endif %}</p>
+        </div>
+        <div class="card-body">
+          <input type="hidden" name="item_sku_{{ loop.index0 }}" value="{{ item_entry.item_sku }}">
+          <table class="table table-sm">
+            <thead><tr><th>Hub</th><th>Available</th><th>Allocate</th></tr></thead>
+            <tbody id="allocations_{{ loop.index0 }}">
+              {% for hub in odpem_hubs %}
+                {% set available = stock_map.get((item_entry.item_sku, hub.id), 0) %}
+                {% if available > 0 %}
+                  <tr>
+                    <td>{{ hub.name }} <small class="text-muted">({{ hub.hub_type }})</small></td>
+                    <td>{{ available }}</td>
+                    <td><input type="hidden" name="depot_{{ loop.parent.index0 }}_{{ loop.index0 }}" value="{{ hub.id }}">
+                        <input type="number" class="form-control form-control-sm" name="qty_{{ loop.parent.index0 }}_{{ loop.index0 }}" min="0" max="{{ available }}" value="0"></td>
+                  </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+    <div class="mb-3">
+      <label class="form-label">Fulfilment Notes</label>
+      <textarea class="form-control" name="fulfilment_notes" rows="3" placeholder="Optional notes about this fulfilment"></textarea>
+    </div>
+    <div class="d-flex justify-content-end gap-2">
+      <a href="{{ url_for('needs_lists') }}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-1"></i>Submit for Manager Approval</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

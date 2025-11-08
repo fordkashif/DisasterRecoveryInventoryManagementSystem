@@ -17,14 +17,16 @@ Utilizes SQLAlchemy ORM with a relational database design, supporting SQLite for
 ### Barcode Scanning for Intake
 Supports barcode scanning for efficient donation intake, reducing manual entry and errors. Items can store an optional barcode value, and the intake form allows scanning or manual entry to auto-select items and move to quantity fields.
 
-### Needs List Management for AGENCY and SUB Hubs
-Implements a workflow for AGENCY and SUB hubs to request items from MAIN hubs:
-- **AGENCY and SUB Hub Creation**: AGENCY and SUB hub staff can create and manage needs lists to request items from MAIN hubs. Each hub type can only see their own needs lists.
-- **Submission to MAIN Hubs**: AGENCY and SUB hubs can submit draft needs lists only to MAIN hubs. Each list includes priority levels (Low, Medium, High, Urgent) and optional justifications for each item.
-- **MAIN Hub Review**: MAIN hub staff can view submitted needs lists from both AGENCY and SUB hubs, check their own stock availability against requests, and approve, reject, or mark lists under review with notes.
-- **Status Workflow**: Draft → Submitted → Under Review → Approved/Rejected
-- **Hub Independence**: SUB hubs cannot see needs lists from other SUB hubs or AGENCY hubs. AGENCY hubs cannot see needs lists from SUB hubs or other AGENCY hubs. MAIN hubs see needs lists submitted to them but do not have access to full AGENCY or SUB hub inventory, maintaining operational independence.
-- **Audit Trail**: Complete tracking of needs list creation, submission, review actions, and timestamps.
+### Needs List Management with Logistics Hierarchy
+Implements a role-based workflow for AGENCY and SUB hubs to request supplies with Logistics Officer preparation and Logistics Manager approval:
+- **Hub Creation & Submission**: AGENCY and SUB hub staff create needs lists with item quantities, priorities (Low/Medium/High/Urgent), and justifications. They submit lists for logistics review. Each hub type can only see their own needs lists.
+- **Logistics Officer Review**: Logistics Officers view all submitted needs lists, prepare fulfilments by verifying requests, assigning quantities from source hubs (MAIN/SUB), and submitting for manager approval. Cannot finalize fulfilments independently.
+- **Logistics Manager Approval**: Logistics Managers have final approval authority. They can approve fulfilments (triggering automatic stock transfers), reject fulfilments (returning to submitted status), or request adjustments to allocations.
+- **Automatic Stock Transfers**: Upon manager approval, the system automatically executes stock transfers: deducts from source hubs (MAIN/SUB), increments to requesting hub (AGENCY/SUB), and creates transaction records marked as "Needs List Fulfilment".
+- **Status Workflow**: Draft → Submitted → Fulfilment Prepared → Awaiting Approval → Fulfilled (or Rejected → Submitted)
+- **Hub Independence**: SUB hubs cannot see needs lists from other SUB hubs or AGENCY hubs. AGENCY hubs cannot see needs lists from SUB hubs or other AGENCY hubs.
+- **Complete Audit Trail**: Tracks who created the list, when submitted, who prepared fulfilment, who approved/rejected, and completion timestamps.
+- **Multi-Hub Fulfilment**: Logistics Officers can allocate items from multiple source hubs (MAIN and SUB) to fulfill a single needs list, optimizing stock distribution.
 
 ### Distribution Package Management
 Implements a comprehensive workflow for creating, reviewing, and approving distribution packages destined for AGENCY hubs with five states: Draft, Under Review, Approved, Dispatched, and Delivered.
@@ -82,8 +84,8 @@ Implements Flask-Login with role-based access control (RBAC) for seven user role
 
 **Role Hierarchy and Responsibilities:**
 - **ADMIN**: Full system access including user management, can add/remove users and assign roles.
-- **LOGISTICS_MANAGER**: Supervises logistics operations, allocates items, approves packages, and reviews work done by Logistics Officers. Can dispatch and deliver packages. Part of ODPEM (Office of Disaster Preparedness and Emergency Management).
-- **LOGISTICS_OFFICER**: Creates draft allocations for distribution packages, manages inventory data, submits work for approval by Logistics Manager, and can dispatch and deliver packages. Part of ODPEM.
+- **LOGISTICS_MANAGER**: Supervises logistics operations, allocates items, approves packages, and reviews work done by Logistics Officers. **Final approval authority for Needs List fulfilments** - can approve/reject fulfilments and execute stock transfers. Can dispatch and deliver packages. Part of ODPEM (Office of Disaster Preparedness and Emergency Management).
+- **LOGISTICS_OFFICER**: Creates draft allocations for distribution packages, manages inventory data, submits work for approval by Logistics Manager. **Prepares Needs List fulfilments** by reviewing requests, assigning quantities, and selecting source hubs (MAIN/SUB), then submitting for manager approval. Cannot finalize fulfilments independently. Can dispatch and deliver packages. Part of ODPEM.
 - **WAREHOUSE_STAFF**: Can dispatch and deliver packages.
 - **FIELD_PERSONNEL, EXECUTIVE, AUDITOR**: Operational and oversight roles.
 
