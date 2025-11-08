@@ -76,17 +76,23 @@
         {% endif %}
       </td>
       <td>
-        {% set stock_qty = stock_by_loc.get(loc.id, 0) %}
-        {% if stock_qty > 0 %}
-          <span class="badge bg-success fs-6">{{ stock_qty }}</span>
+        {% if loc.hub_type == 'AGENCY' %}
+          <span class="text-muted">N/A</span>
         {% else %}
-          <span class="text-muted">{{ stock_qty }}</span>
+          {% set stock_qty = stock_by_loc.get(loc.id, 0) %}
+          {% if stock_qty > 0 %}
+            <span class="badge bg-success fs-6">{{ stock_qty }}</span>
+          {% else %}
+            <span class="text-muted">{{ stock_qty }}</span>
+          {% endif %}
         {% endif %}
       </td>
       <td class="text-end">
-        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('depot_inventory', location_id=loc.id) }}">
-          <i class="bi bi-box-seam me-1"></i>Inventory
-        </a>
+        {% if loc.hub_type != 'AGENCY' %}
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('depot_inventory', location_id=loc.id) }}">
+            <i class="bi bi-box-seam me-1"></i>Inventory
+          </a>
+        {% endif %}
         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('depot_edit', location_id=loc.id) }}">
           <i class="bi bi-pencil me-1"></i>Edit
         </a>

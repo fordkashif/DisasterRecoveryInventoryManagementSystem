@@ -1186,6 +1186,11 @@ def depot_edit(location_id):
 def depot_inventory(location_id):
     location = Depot.query.get_or_404(location_id)
     
+    # AGENCY hub inventory is private - block access
+    if location.hub_type == 'AGENCY':
+        flash("AGENCY hub inventory is private and cannot be accessed.", "warning")
+        return redirect(url_for("depots"))
+    
     # Get all items with stock at this location
     stock_expr = func.sum(
         case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty)
