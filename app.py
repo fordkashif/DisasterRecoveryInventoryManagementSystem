@@ -193,31 +193,52 @@ class PackageStatusHistory(db.Model):
     package = db.relationship("DistributionPackage", back_populates="status_history")
 
 class NeedsList(db.Model):
-    """Needs lists created by AGENCY hubs and submitted to MAIN hubs for review"""
+    """Needs lists created by AGENCY and SUB hubs for logistics review and fulfilment"""
     __tablename__ = 'needs_list'
     id = db.Column(db.Integer, primary_key=True)
     list_number = db.Column(db.String(64), unique=True, nullable=False, index=True)  # e.g., NL-000001
-    agency_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)  # AGENCY hub creating the needs list
-    main_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)  # MAIN hub to receive submission
+    agency_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)  # AGENCY/SUB hub creating the needs list
+    main_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)  # Legacy field, may be null
     event_id = db.Column(db.Integer, db.ForeignKey("disaster_event.id"), nullable=True)
-    status = db.Column(db.String(50), nullable=False, default="Draft")  # Draft, Submitted, Under Review, Approved, Rejected
+    
+    # Status: Draft, Submitted, Fulfilment Prepared, Awaiting Approval, Approved, Fulfilled, Rejected
+    status = db.Column(db.String(50), nullable=False, default="Draft")
     priority = db.Column(db.String(20), nullable=False, default="Medium")  # Low, Medium, High, Urgent
     notes = db.Column(db.Text, nullable=True)
+    
+    # Creation tracking
     created_by = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     submitted_at = db.Column(db.DateTime, nullable=True)
+    
+    # Fulfilment preparation tracking (Logistics Officer)
+    prepared_by = db.Column(db.String(200), nullable=True)  # Logistics Officer who prepared fulfilment
+    prepared_at = db.Column(db.DateTime, nullable=True)
+    fulfilment_notes = db.Column(db.Text, nullable=True)  # Notes from Logistics Officer
+    
+    # Approval tracking (Logistics Manager)
+    approved_by = db.Column(db.String(200), nullable=True)  # Logistics Manager who approved
+    approved_at = db.Column(db.DateTime, nullable=True)
+    approval_notes = db.Column(db.Text, nullable=True)  # Notes from Logistics Manager
+    
+    # Fulfilment completion tracking
+    fulfilled_at = db.Column(db.DateTime, nullable=True)
+    
+    # Legacy review fields (deprecated but kept for backward compatibility)
     reviewed_by = db.Column(db.String(200), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     review_notes = db.Column(db.Text, nullable=True)
+    
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     agency_hub = db.relationship("Depot", foreign_keys=[agency_hub_id])
     main_hub = db.relationship("Depot", foreign_keys=[main_hub_id])
     event = db.relationship("DisasterEvent")
     items = db.relationship("NeedsListItem", back_populates="needs_list", cascade="all, delete-orphan")
+    fulfilments = db.relationship("NeedsListFulfilment", back_populates="needs_list", cascade="all, delete-orphan")
 
 class NeedsListItem(db.Model):
-    """Items requested in an agency hub's needs list"""
+    """Items requested in an agency/sub hub's needs list"""
     __tablename__ = 'needs_list_item'
     id = db.Column(db.Integer, primary_key=True)
     needs_list_id = db.Column(db.Integer, db.ForeignKey("needs_list.id"), nullable=False)
@@ -227,6 +248,20 @@ class NeedsListItem(db.Model):
     
     needs_list = db.relationship("NeedsList", back_populates="items")
     item = db.relationship("Item")
+
+class NeedsListFulfilment(db.Model):
+    """Fulfilment allocations for needs list items - tracks which source hubs will supply which quantities"""
+    __tablename__ = 'needs_list_fulfilment'
+    id = db.Column(db.Integer, primary_key=True)
+    needs_list_id = db.Column(db.Integer, db.ForeignKey("needs_list.id"), nullable=False)
+    item_sku = db.Column(db.String(64), db.ForeignKey("item.sku"), nullable=False)
+    source_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)  # MAIN or SUB hub supplying stock
+    allocated_qty = db.Column(db.Integer, nullable=False)  # Quantity to be supplied from this source
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    needs_list = db.relationship("NeedsList", back_populates="fulfilments")
+    item = db.relationship("Item")
+    source_hub = db.relationship("Depot")
 
 # ---------- Flask-Login Configuration ----------
 login_manager = LoginManager()

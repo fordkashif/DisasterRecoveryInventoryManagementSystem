@@ -1,0 +1,111 @@
+In my inventory app, update the Needs List workflow to reflect the new logistics hierarchy and approval process as follows:
+Roles & Workflow
+
+
+Sub-Hubs and Agency Hubs can create and submit their own Needs Lists.
+
+
+Logistics Officers can view all submitted Needs Lists and perform the initial fulfilment by:
+
+
+Reviewing and verifying requests.
+
+
+Assigning quantities to be fulfilled.
+
+
+Selecting the source Hub(s) (Main or Sub-Hub) for each item.
+
+
+Submitting the fulfilment for Logistics Manager approval.
+
+
+
+
+Logistics Managers have final approval authority and can:
+
+
+Approve or reject fulfilments prepared by Logistics Officers.
+
+
+Make adjustments to allocations before final approval.
+
+
+Approve and issue stock transfers to the requesting Hub once satisfied.
+
+
+
+
+Once approved by the Logistics Manager, the fulfilment should automatically trigger:
+
+
+Stock deduction from the supplying Hub(s).
+
+
+Stock increment in the receiving Hub.
+
+
+A log entry in the transaction records (marked as “Needs List Fulfilment”).
+
+
+
+
+Additional Logic
+
+
+Logistics Officers cannot finalize any fulfilment; their submissions require Logistics Manager approval before execution.
+
+
+All Needs Lists should have a status field showing:
+
+
+Draft (created by Sub-Hub/Agency)
+
+
+Submitted (awaiting Logistics Officer review)
+
+
+Fulfilment Prepared (by Logistics Officer)
+
+
+Awaiting Approval (pending Logistics Manager)
+
+
+Approved (by Logistics Manager)
+
+
+Fulfilled (stock transfer completed)
+
+
+
+
+Maintain audit logs showing:
+
+
+Who created the Needs List
+
+
+Who prepared the fulfilment
+
+
+Who approved it and when
+
+
+
+
+Ensure both Logistics Officers and Logistics Managers can filter and track Needs Lists by status and originating Hub.
+
+
+Permissions Summary
+
+
+Sub-Hubs & Agency Hubs: Create & submit Needs Lists only.
+
+
+Logistics Officers: Review and perform initial fulfilment.
+
+
+Logistics Managers: Final approval and execution of fulfilments.
+
+
+Make sure this new workflow is reflected in both the UI and database logic, and update all related forms, lists, and reports accordingly.
