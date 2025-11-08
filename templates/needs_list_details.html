@@ -36,12 +36,16 @@
                       <span class="badge bg-secondary">Draft</span>
                     {% elif needs_list.status == 'Submitted' %}
                       <span class="badge bg-primary">Submitted</span>
-                    {% elif needs_list.status == 'Under Review' %}
-                      <span class="badge bg-warning text-dark">Under Review</span>
-                    {% elif needs_list.status == 'Approved' %}
-                      <span class="badge bg-success">Approved</span>
+                    {% elif needs_list.status == 'Fulfilment Prepared' %}
+                      <span class="badge bg-info">Fulfilment Prepared</span>
+                    {% elif needs_list.status == 'Awaiting Approval' %}
+                      <span class="badge bg-warning text-dark">Awaiting Approval</span>
+                    {% elif needs_list.status == 'Fulfilled' %}
+                      <span class="badge bg-success">Fulfilled</span>
                     {% elif needs_list.status == 'Rejected' %}
                       <span class="badge bg-danger">Rejected</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ needs_list.status }}</span>
                     {% endif %}
                   </td>
                 </tr>
@@ -65,12 +69,6 @@
                   <td>{{ needs_list.event.name }}</td>
                 </tr>
                 {% endif %}
-                {% if needs_list.main_hub %}
-                <tr>
-                  <th>Submitted To:</th>
-                  <td>{{ needs_list.main_hub.name }}</td>
-                </tr>
-                {% endif %}
                 <tr>
                   <th>Created By:</th>
                   <td>{{ needs_list.created_by }}</td>
@@ -85,14 +83,24 @@
                   <td>{{ needs_list.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 </tr>
                 {% endif %}
-                {% if needs_list.reviewed_by %}
+                {% if needs_list.prepared_by %}
                 <tr>
-                  <th>Reviewed By:</th>
-                  <td>{{ needs_list.reviewed_by }}</td>
+                  <th>Prepared By:</th>
+                  <td>{{ needs_list.prepared_by }} <small class="text-muted">(Logistics Officer)</small></td>
                 </tr>
                 <tr>
-                  <th>Reviewed At:</th>
-                  <td>{{ needs_list.reviewed_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                  <th>Prepared At:</th>
+                  <td>{{ needs_list.prepared_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% endif %}
+                {% if needs_list.approved_by %}
+                <tr>
+                  <th>{% if needs_list.approval_status == 'Rejected' %}Rejected By:{% else %}Approved By:{% endif %}</th>
+                  <td>{{ needs_list.approved_by }} <small class="text-muted">(Logistics Manager)</small></td>
+                </tr>
+                <tr>
+                  <th>{% if needs_list.approval_status == 'Rejected' %}Rejected At:{% else %}Approved At:{% endif %}</th>
+                  <td>{{ needs_list.approved_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 </tr>
                 {% endif %}
                 {% if needs_list.notes %}
@@ -101,10 +109,16 @@
                   <td>{{ needs_list.notes }}</td>
                 </tr>
                 {% endif %}
-                {% if needs_list.review_notes %}
+                {% if needs_list.fulfilment_notes %}
                 <tr>
-                  <th>Review Notes:</th>
-                  <td><em>{{ needs_list.review_notes }}</em></td>
+                  <th>Fulfilment Notes:</th>
+                  <td><em>{{ needs_list.fulfilment_notes }}</em></td>
+                </tr>
+                {% endif %}
+                {% if needs_list.approval_notes %}
+                <tr>
+                  <th>Approval Notes:</th>
+                  <td><em>{{ needs_list.approval_notes }}</em></td>
                 </tr>
                 {% endif %}
               </table>
@@ -120,9 +134,9 @@
                 <thead>
                   <tr>
                     <th>Item</th>
-                    <th>Quantity</th>
-                    {% if user_depot and user_depot.hub_type == 'MAIN' %}
-                    <th>Available Stock</th>
+                    <th>Requested</th>
+                    {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Fulfilled'] %}
+                    <th>Allocated</th>
                     {% endif %}
                     <th>Justification</th>
                   </tr>
@@ -132,15 +146,17 @@
                   <tr>
                     <td>{{ item_entry.item.name }} <small class="text-muted">({{ item_entry.item.sku }})</small></td>
                     <td><strong>{{ item_entry.requested_qty }}</strong> {{ item_entry.item.unit }}</td>
-                    {% if user_depot and user_depot.hub_type == 'MAIN' %}
+                    {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Fulfilled'] %}
                     <td>
-                      {% set available = stock_map.get((item_entry.item_sku, user_depot.id), 0) %}
-                      {% if available >= item_entry.requested_qty %}
-                        <span class="text-success"><strong>{{ available }}</strong></span>
-                      {% elif available > 0 %}
-                        <span class="text-warning"><strong>{{ available }}</strong></span>
-                      {% else %}
-                        <span class="text-danger"><strong>0</strong></span>
+                      {% set total_allocated = 0 %}
+                      {% for fulfilment in needs_list.fulfilments %}
+                        {% if fulfilment.item_sku == item_entry.item_sku %}
+                          {% set total_allocated = total_allocated + fulfilment.allocated_qty %}
+                        {% endif %}
+                      {% endfor %}
+                      <strong>{{ total_allocated }}</strong> {{ item_entry.item.unit }}
+                      {% if total_allocated < item_entry.requested_qty %}
+                        <span class="badge bg-warning text-dark">Partial</span>
                       {% endif %}
                     </td>
                     {% endif %}
