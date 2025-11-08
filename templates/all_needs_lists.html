@@ -20,7 +20,7 @@
               <thead>
                 <tr>
                   <th>List Number</th>
-                  <th>Agency Hub</th>
+                  <th>Requesting Hub</th>
                   <th>MAIN Hub</th>
                   <th>Priority</th>
                   <th>Status</th>
@@ -37,7 +37,7 @@
                       <strong>{{ needs_list.list_number }}</strong>
                     </a>
                   </td>
-                  <td>{{ needs_list.agency_hub.name }}</td>
+                  <td>{{ needs_list.agency_hub.name }} <small class="text-muted">({{ needs_list.agency_hub.hub_type }})</small></td>
                   <td>
                     {% if needs_list.main_hub %}
                       {{ needs_list.main_hub.name }}

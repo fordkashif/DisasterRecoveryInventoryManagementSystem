@@ -86,10 +86,10 @@
           {% endif %}
           
           
-          {# Needs Lists - visible to AGENCY and MAIN hub users #}
+          {# Needs Lists - visible to AGENCY, SUB, and MAIN hub users #}
           {% if current_user.assigned_location %}
             {% set user_depot = current_user.assigned_location %}
-            {% if user_depot.hub_type in ['AGENCY', 'MAIN'] %}
+            {% if user_depot.hub_type in ['AGENCY', 'SUB', 'MAIN'] %}
               <li class="nav-item"><a class="nav-link" href="{{ url_for('needs_lists') }}"><i class="bi bi-clipboard-check me-1"></i>Needs Lists</a></li>
             {% endif %}
           {% endif %}

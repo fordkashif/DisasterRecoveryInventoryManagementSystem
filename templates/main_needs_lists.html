@@ -10,7 +10,7 @@
 
       <div class="alert alert-info">
         <i class="bi bi-info-circle me-2"></i>
-        <strong>{{ user_depot.name }}</strong> - Review needs lists submitted by AGENCY hubs.
+        <strong>{{ user_depot.name }}</strong> - Review needs lists submitted by AGENCY and SUB hubs.
       </div>
 
       <ul class="nav nav-tabs mb-3" id="needsListTabs" role="tablist">
@@ -38,7 +38,7 @@
                   <thead>
                     <tr>
                       <th>List Number</th>
-                      <th>Agency Hub</th>
+                      <th>Requesting Hub</th>
                       <th>Priority</th>
                       <th>Items</th>
                       <th>Submitted</th>
@@ -53,7 +53,7 @@
                           <strong>{{ needs_list.list_number }}</strong>
                         </a>
                       </td>
-                      <td>{{ needs_list.agency_hub.name }}</td>
+                      <td>{{ needs_list.agency_hub.name }} <small class="text-muted">({{ needs_list.agency_hub.hub_type }})</small></td>
                       <td>
                         {% if needs_list.priority == 'Urgent' %}
                           <span class="badge bg-danger">Urgent</span>
@@ -110,7 +110,7 @@
                           <strong>{{ needs_list.list_number }}</strong>
                         </a>
                       </td>
-                      <td>{{ needs_list.agency_hub.name }}</td>
+                      <td>{{ needs_list.agency_hub.name }} <small class="text-muted">({{ needs_list.agency_hub.hub_type }})</small></td>
                       <td>
                         {% if needs_list.priority == 'Urgent' %}
                           <span class="badge bg-danger">Urgent</span>
