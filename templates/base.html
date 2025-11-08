@@ -77,7 +77,7 @@
         {% if current_user.is_authenticated %}
           {# Items - visible to most roles #}
           {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER', 'WAREHOUSE_STAFF', 'AUDITOR', 'EXECUTIVE'] %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('items') }}"><i class="bi bi-box-seam me-1"></i>Items</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('items') }}"><i class="bi bi-box-seam me-1"></i>Inventory</a></li>
           {% endif %}
           
           {# Depots - visible to logistics staff and warehouse staff #}
