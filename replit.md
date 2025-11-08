@@ -35,16 +35,18 @@ Stock levels are dynamically aggregated on-demand from transaction records (summ
 ### Stock Validation and Negative Stock Prevention
 Comprehensive validation prevents stock levels from falling below zero during distributions, transfers, and package dispatches/fulfillments. Error messages indicate item, depot, available, and requested quantities.
 
-### Three-Tier Hub Hierarchy System
-Implements a hierarchical depot structure with three hub types for managing stock distribution and approvals:
-- **MAIN Hub**: Central distribution hub (e.g., Pimento JDF) with authority to execute transfers immediately without approval. Can view and approve transfer requests from SUB and AGENCY hubs.
-- **SUB Hub**: Regional distribution hubs (e.g., Trelawny, Haining) that report to MAIN hub. Transfer requests require MAIN hub approval before execution.
-- **AGENCY Hub**: Independent agency-operated hubs (e.g., Montego Bay, Pimento) that report to MAIN hub. Transfer requests require MAIN hub approval before execution.
+### Three-Tier Hub Orchestration System
+Implements a role-based orchestration model with three hub types for managing stock distribution and approvals:
+- **MAIN Hub**: Central distribution hubs (e.g., Pimento JDF) act as orchestrators for all SUB hubs with authority to execute transfers immediately without approval. Any MAIN hub can view and approve transfer requests from any SUB or AGENCY hub.
+- **SUB Hub**: Regional distribution hubs (e.g., Trelawny, Haining) governed by all MAIN hubs collectively. No specific parent assignment needed. Transfer requests require approval from any MAIN hub before execution.
+- **AGENCY Hub**: Independent agency-operated hubs (e.g., Montego Bay, Pimento) that can request items from MAIN hubs. Can optionally link to a MAIN hub for tracking purposes, but this does not restrict which MAIN hub can approve their transfers.
 
-**Hub Hierarchy Features:**
-- Each SUB and AGENCY hub has a parent_location_id linking to its MAIN hub
-- Self-referential relationship enables querying parent/child hub relationships
-- Transfer approval workflow based on hub type (MAIN transfers immediate, SUB/AGENCY require approval)
+**Hub Orchestration Features:**
+- Role-based governance: SUB hubs are orchestrated by ALL MAIN hubs, not a specific parent
+- Any MAIN hub user can approve transfer requests from any SUB or AGENCY hub
+- Transfer approval workflow based purely on hub_type (MAIN transfers immediate, SUB/AGENCY require MAIN approval)
+- Optional parent_location_id for AGENCY hubs for tracking purposes only
+- Hub Status tracking (Active/Inactive) with automatic operational timestamp recording when activated
 
 ### Stock Transfer Between Depots with Approval Workflow
 Enables logistics staff to transfer stock between depots with hub-based approval rules:
