@@ -2177,8 +2177,6 @@ def needs_list_edit(list_id):
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     if request.method == "POST":
-        action = request.form.get("action", "save_draft")  # "save_draft" or "submit"
-        
         event_id = request.form.get("event_id") or None
         priority = request.form.get("priority", "Medium")
         notes = request.form.get("notes", "").strip() or None
@@ -2237,58 +2235,9 @@ def needs_list_edit(list_id):
             )
             db.session.add(needs_list_item)
         
-        # Handle action: save as draft or submit
-        if action == "submit":
-            # Submit for logistics review
-            needs_list.status = 'Submitted'
-            needs_list.submitted_at = datetime.utcnow()
-            db.session.commit()
-            
-            # Create notifications (same as in needs_list_submit)
-            create_notification_for_agency_hub(
-                needs_list=needs_list,
-                title="Needs List Submitted",
-                message=f"Your needs list {needs_list.list_number} has been submitted for ODPEM review.",
-                notification_type="submitted",
-                triggered_by_user=current_user
-            )
-            
-            create_notifications_for_role(
-                role=ROLE_LOGISTICS_OFFICER,
-                title="New Needs List Submitted",
-                message=f"Needs list {needs_list.list_number} from {needs_list.agency_hub.name} needs fulfillment preparation.",
-                notification_type="task_assigned",
-                link_url=f"/needs-lists/{needs_list.id}/prepare",
-                payload_data={
-                    "needs_list_number": needs_list.list_number,
-                    "agency_hub": needs_list.agency_hub.name,
-                    "submitted_by": current_user.full_name,
-                    "submitted_by_id": current_user.id
-                },
-                needs_list_id=needs_list.id
-            )
-            
-            create_notifications_for_role(
-                role=ROLE_ADMIN,
-                title="Needs List Submitted",
-                message=f"New needs list {needs_list.list_number} submitted by {needs_list.agency_hub.name} for system monitoring.",
-                notification_type="task_assigned",
-                link_url=f"/needs-lists/{needs_list.id}",
-                payload_data={
-                    "needs_list_number": needs_list.list_number,
-                    "agency_hub": needs_list.agency_hub.name,
-                    "submitted_by": current_user.full_name,
-                    "submitted_by_id": current_user.id,
-                    "event_type": "system_monitoring"
-                },
-                needs_list_id=needs_list.id
-            )
-            
-            flash(f"Needs list {needs_list.list_number} submitted successfully for logistics review.", "success")
-        else:
-            # Save as draft
-            db.session.commit()
-            flash(f"Needs list {needs_list.list_number} saved as draft.", "success")
+        # Save as draft
+        db.session.commit()
+        flash(f"Needs list {needs_list.list_number} saved as draft. Review below and submit when ready.", "success")
         
         return redirect(url_for("needs_list_details", list_id=list_id))
     

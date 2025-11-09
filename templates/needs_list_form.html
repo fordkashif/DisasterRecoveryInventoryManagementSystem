@@ -30,7 +30,7 @@
       {% if is_edit and needs_list.status == 'Draft' %}
       <div class="alert alert-warning">
         <i class="bi bi-exclamation-triangle me-2"></i>
-        <strong>Draft Status:</strong> This needs list can still be edited. Use "Save as Draft" to save your progress, or "Submit to ODPEM" when ready to send for review.
+        <strong>Draft Status:</strong> This needs list can still be edited. Click "Save as Draft" below to save your changes. After saving, you'll be able to review and submit to ODPEM from the details page.
       </div>
       {% endif %}
 
@@ -137,13 +137,10 @@
 
             <div class="d-flex justify-content-between align-items-center">
               <a href="{% if is_edit %}{{ url_for('needs_list_details', list_id=needs_list.id) }}{% else %}{{ url_for('needs_lists') }}{% endif %}" class="btn btn-secondary">Cancel</a>
-              <div class="d-flex gap-2">
+              <div>
                 {% if is_edit %}
-                  <button type="submit" name="action" value="save_draft" class="btn btn-outline-primary">
+                  <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save me-1"></i>Save as Draft
-                  </button>
-                  <button type="submit" name="action" value="submit" class="btn btn-success">
-                    <i class="bi bi-send me-1"></i>Submit to ODPEM / Main Hub
                   </button>
                 {% else %}
                   <button type="submit" class="btn btn-primary">
