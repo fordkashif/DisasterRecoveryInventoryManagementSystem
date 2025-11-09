@@ -1,0 +1,73 @@
+n my DRIMS Flask app, update the Dashboard page to have a modern, user-friendly, and intuitive design while maintaining performance and accessibility.
+
+UI / UX Redesign Goals
+
+Adopt a clean, data-driven layout that uses the available screen space efficiently.
+
+Ensure the design aligns with the new left-side navigation layout for visual consistency.
+
+Use Bootstrap 5, modern card-based panels, and responsive grids for a polished look on both desktop and tablet.
+
+Dashboard Structure
+
+Header Section:
+
+Show key metrics at a glance using elegant cards with icons and soft color accents.
+
+Include metrics such as:
+
+Total Hubs (Main, Sub, Agencies)
+
+Total Stock Units
+
+Active Needs Lists
+
+Pending Approvals (Transfers / Fulfilments)
+
+Use subtle animations or counters to make key numbers more visually engaging.
+
+Middle Section (Operational Insights):
+
+Add a “Quick Overview” panel showing:
+
+Hubs by status (Active vs Inactive) using small bar or donut charts.
+
+Stock distribution by category (Food & Water, Hygiene & Sanitization, etc.).
+
+Current fulfilment progress summary (Needs Lists in various statuses).
+
+Use chart libraries like Chart.js or ApexCharts for lightweight, dynamic visuals.
+
+Lower Section (Activity Feed):
+
+Include a scrollable Recent Transactions & Activities list showing:
+
+Stock intakes, distributions, and Needs List approvals.
+
+Use color-coded badges or icons for quick recognition (e.g., 🟢 Intake, 🔵 Distribution, 🟡 Pending Approval).
+
+Right Sidebar (Optional):
+
+Show notifications, recent approvals, or quick actions (e.g., “Create Needs List,” “Add Hub,” “View Reports”).
+
+Styling & Usability Enhancements
+
+Use a light, flat modern palette with proper contrast and consistent font sizing.
+
+Ensure good spacing and alignment — nothing should look cramped or oversized.
+
+Include hover effects and tooltips for interactivity and better context.
+
+Keep design minimal yet visually appealing — prioritize clarity and data visibility.
+
+Make the layout fully responsive for different screen sizes.
+
+Performance & Integration
+
+Reuse existing data queries and endpoints — only enhance the layout and visuals.
+
+Optimize for fast loading; lazy-load charts or heavy components if needed.
+
+Ensure accessibility compliance (WCAG AA): color contrast, keyboard navigation, and ARIA labels.
+
+The end result should be a modern, well-organized, and intuitive dashboard that gives users immediate visibility of operational status, fulfilment progress, and key logistics metrics.

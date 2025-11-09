@@ -642,6 +642,44 @@ def dashboard():
         pending_needs_lists = DistributionPackage.query.filter_by(status="Draft")\
                                                        .order_by(DistributionPackage.created_at.asc()).all()
     
+    # Hubs by type (for chart)
+    hubs_by_type = {}
+    all_hubs = Depot.query.all()
+    for hub in all_hubs:
+        hub_type = hub.hub_type or "Other"
+        hubs_by_type[hub_type] = hubs_by_type.get(hub_type, 0) + 1
+    
+    # Category data for chart (top 5)
+    category_labels = []
+    category_data = []
+    for category, stats in sorted_categories[:5]:
+        category_labels.append(category if len(category) <= 15 else category[:12] + "...")
+        category_data.append(stats['total_units'])
+    
+    # Needs Lists stats
+    needs_lists_draft = NeedsList.query.filter_by(status='Draft').count()
+    needs_lists_submitted = NeedsList.query.filter_by(status='Submitted').count()
+    needs_lists_awaiting = NeedsList.query.filter(
+        NeedsList.status.in_(['Awaiting Approval', 'Fulfilment Prepared'])
+    ).count()
+    needs_lists_fulfilled = NeedsList.query.filter_by(status='Fulfilled').count()
+    
+    needs_lists_stats = {
+        'pending': needs_lists_submitted + needs_lists_awaiting,
+        'in_progress': needs_lists_awaiting,
+        'fulfilled': needs_lists_fulfilled
+    }
+    
+    needs_lists_chart_data = {
+        'Draft': needs_lists_draft,
+        'Submitted': needs_lists_submitted,
+        'In Progress': needs_lists_awaiting,
+        'Fulfilled': needs_lists_fulfilled
+    }
+    
+    # Total distributors (this was being queried but not used)
+    total_distributors = Depot.query.filter_by(hub_type='AGENCY').count()
+    
     return render_template("dashboard.html",
                            total_items=total_items,
                            total_in_stock=total_in_stock,
@@ -666,7 +704,13 @@ def dashboard():
                            event_stats_full=event_stats_full,
                            expiring_items_preview=expiring_items_preview,
                            expiring_items_full=expiring_items_full,
-                           pending_needs_lists=pending_needs_lists)
+                           pending_needs_lists=pending_needs_lists,
+                           total_distributors=total_distributors,
+                           hubs_by_type=hubs_by_type,
+                           category_labels=category_labels,
+                           category_data=category_data,
+                           needs_lists_stats=needs_lists_stats,
+                           needs_lists_chart_data=needs_lists_chart_data)
 
 @app.route("/items")
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_WAREHOUSE_STAFF, ROLE_AUDITOR, ROLE_EXECUTIVE)
