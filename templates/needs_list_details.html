@@ -130,18 +130,7 @@
                     <i class="bi bi-clock-history text-info me-2" style="font-size: 1.5rem;"></i>
                     <small class="text-muted">Timeline</small>
                   </div>
-                  {% if needs_list.dispatched_at %}
-                    <small class="d-flex align-items-start mb-1">
-                      <i class="bi bi-truck me-1 text-primary"></i>
-                      <div>
-                        <strong class="d-block">Dispatched</strong>
-                        <span class="text-muted">{{ needs_list.dispatched_at.strftime('%b %d, %H:%M') }}</span>
-                        {% if needs_list.dispatched_by_user %}
-                          <br><span class="text-muted small">by {{ needs_list.dispatched_by_user.full_name }}</span>
-                        {% endif %}
-                      </div>
-                    </small>
-                  {% endif %}
+                  {# Show most recent event only #}
                   {% if needs_list.received_at %}
                     <small class="d-flex align-items-start">
                       <i class="bi bi-check-circle me-1 text-success"></i>
@@ -153,6 +142,19 @@
                         {% endif %}
                       </div>
                     </small>
+                  {% elif needs_list.dispatched_at %}
+                    <small class="d-flex align-items-start">
+                      <i class="bi bi-truck me-1 text-primary"></i>
+                      <div>
+                        <strong class="d-block">Dispatched</strong>
+                        <span class="text-muted">{{ needs_list.dispatched_at.strftime('%b %d, %H:%M') }}</span>
+                        {% if needs_list.dispatched_by_user %}
+                          <br><span class="text-muted small">by {{ needs_list.dispatched_by_user.full_name }}</span>
+                        {% endif %}
+                      </div>
+                    </small>
+                  {% else %}
+                    <small class="text-muted">No events yet</small>
                   {% endif %}
                 </div>
               </div>
@@ -344,17 +346,17 @@
                           {% else %}
                             <span class="badge bg-warning text-dark w-100 mb-1">Partial Delivery</span>
                           {% endif %}
+                          {# Show most recent event only on first row #}
                           {% if loop.first %}
-                            {% if needs_list.dispatched_at %}
-                              <small class="d-block text-muted mt-1">
-                                <i class="bi bi-truck me-1"></i>{{ needs_list.dispatched_at.strftime('%b %d, %H:%M') }}
-                                {% if needs_list.dispatched_by_user %}<br>by {{ needs_list.dispatched_by_user.full_name }}{% endif %}
-                              </small>
-                            {% endif %}
-                            {% if needs_list.status in ['Received', 'Completed'] and needs_list.received_at %}
+                            {% if needs_list.received_at %}
                               <small class="d-block text-success mt-1">
                                 <i class="bi bi-check-circle me-1"></i>{{ needs_list.received_at.strftime('%b %d, %H:%M') }}
                                 {% if needs_list.received_by_user %}<br>by {{ needs_list.received_by_user.full_name }}{% endif %}
+                              </small>
+                            {% elif needs_list.dispatched_at %}
+                              <small class="d-block text-muted mt-1">
+                                <i class="bi bi-truck me-1"></i>{{ needs_list.dispatched_at.strftime('%b %d, %H:%M') }}
+                                {% if needs_list.dispatched_by_user %}<br>by {{ needs_list.dispatched_by_user.full_name }}{% endif %}
                               </small>
                             {% endif %}
                           {% endif %}

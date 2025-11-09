@@ -2072,7 +2072,12 @@ def needs_list_create():
 @login_required
 def needs_list_details(list_id):
     """View needs list details"""
-    needs_list = NeedsList.query.get_or_404(list_id)
+    # Eagerly load fulfilments and users to avoid lazy loading issues
+    needs_list = NeedsList.query.options(
+        db.joinedload(NeedsList.fulfilments).joinedload(NeedsListFulfilment.source_hub),
+        db.joinedload(NeedsList.dispatched_by_user),
+        db.joinedload(NeedsList.received_by_user)
+    ).get_or_404(list_id)
     
     # Permission check using centralized helper
     allowed, error_msg = can_view_needs_list(current_user, needs_list)
