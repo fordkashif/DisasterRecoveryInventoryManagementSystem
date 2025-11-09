@@ -126,11 +126,11 @@
                     </td>
                     <td>
                       <div class="allocation-controls">
-                        {% set hub_count = 0 %}
+                        {% set available_hubs = [] %}
                         {% for hub in odpem_hubs %}
                           {% set available = stock_map.get((item_entry.item_sku, hub.id), 0) %}
                           {% if available > 0 %}
-                            {% set hub_count = hub_count + 1 %}
+                            {% set _ = available_hubs.append(hub) %}
                             <div class="allocation-hub-row mb-1" data-hub-id="{{ hub.id }}" data-max-available="{{ available }}">
                               <div class="row g-1 align-items-center">
                                 <div class="col-5">
@@ -160,7 +160,7 @@
                             </div>
                           {% endif %}
                         {% endfor %}
-                        {% if hub_count == 0 %}
+                        {% if available_hubs|length == 0 %}
                           <small class="text-danger"><i class="bi bi-exclamation-circle"></i> No stock available</small>
                         {% endif %}
                       </div>
