@@ -78,7 +78,7 @@ Provides real-time notifications to all user roles for relevant workflow events.
 **Notification Triggers by Role:**
 -   **Agency Hub Users**: Needs list lifecycle events (submitted, approved, dispatched, received)
 -   **Logistics Officers**: New submissions to prepare, approved items ready for dispatch
--   **Logistics Managers**: Fulfillment awaiting approval, completed needs lists for oversight
+-   **Logistics Managers**: New submissions for oversight, fulfillment awaiting approval, completed needs lists for review
 -   **Warehouse Staff**: Approved items to prepare, dispatch completion confirmations
 -   **Auditors**: Completed needs lists ready for audit trail review
 -   **Field Personnel**: Items dispatched to agencies (distribution support awareness)

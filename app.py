@@ -2138,6 +2138,22 @@ def needs_list_submit(list_id):
         needs_list_id=needs_list.id
     )
     
+    # Notify Logistics Managers about new submission for oversight
+    create_notifications_for_role(
+        role=ROLE_LOGISTICS_MANAGER,
+        title="New Needs List Submitted",
+        message=f"Needs list {needs_list.list_number} submitted by {needs_list.agency_hub.name} for review.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "submitted_by": current_user.full_name,
+            "submitted_by_id": current_user.id
+        },
+        needs_list_id=needs_list.id
+    )
+    
     # Notify Admins about new needs list submissions for system monitoring
     create_notifications_for_role(
         role=ROLE_ADMIN,
