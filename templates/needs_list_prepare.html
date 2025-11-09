@@ -49,10 +49,10 @@
             </div>
             <div class="col-md-3">
               <div class="d-flex align-items-center">
-                <i class="bi bi-exclamation-triangle text-danger me-2" style="font-size: 1.5rem;"></i>
+                <i class="bi bi-exclamation-circle text-secondary me-2" style="font-size: 1.5rem;"></i>
                 <div>
-                  <small class="text-muted d-block">Over-Allocated</small>
-                  <strong id="summary-over-allocated">0</strong>
+                  <small class="text-muted d-block">Unallocated</small>
+                  <strong id="summary-unallocated">0</strong>
                 </div>
               </div>
             </div>
@@ -515,6 +515,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function updateCalculations() {
     let fullyAllocated = 0;
     let partiallyAllocated = 0;
+    let unallocated = 0;
     let overAllocated = 0;
     
     document.querySelectorAll('.item-row').forEach(row => {
@@ -581,6 +582,7 @@ document.addEventListener('DOMContentLoaded', function() {
         progressBar.className = 'progress-bar bg-secondary';
         percentageText.className = 'percentage-text text-secondary';
         row.dataset.status = 'unallocated';
+        unallocated++;
       }
       
       // Update live stock
@@ -605,10 +607,10 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
     
-    // Update summary
+    // Update summary cards
     document.getElementById('summary-fully-allocated').textContent = fullyAllocated;
     document.getElementById('summary-partial').textContent = partiallyAllocated;
-    document.getElementById('summary-over-allocated').textContent = overAllocated;
+    document.getElementById('summary-unallocated').textContent = unallocated;
     
     // Validate
     const submitBtn = document.getElementById('submitBtn');
