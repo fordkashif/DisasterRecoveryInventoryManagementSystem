@@ -61,12 +61,22 @@
                       <span class="badge bg-secondary">Draft</span>
                     {% elif needs_list.status == 'Submitted' %}
                       <span class="badge bg-primary">Submitted</span>
-                    {% elif needs_list.status == 'Under Review' %}
-                      <span class="badge bg-warning text-dark">Under Review</span>
+                    {% elif needs_list.status == 'Fulfilment Prepared' %}
+                      <span class="badge bg-info">Fulfilment Prepared</span>
+                    {% elif needs_list.status == 'Awaiting Approval' %}
+                      <span class="badge bg-warning text-dark">Awaiting Approval</span>
                     {% elif needs_list.status == 'Approved' %}
                       <span class="badge bg-success">Approved</span>
+                    {% elif needs_list.status == 'Dispatched' %}
+                      <span class="badge bg-info">Dispatched</span>
+                    {% elif needs_list.status == 'Received' %}
+                      <span class="badge bg-primary">Received</span>
+                    {% elif needs_list.status == 'Completed' %}
+                      <span class="badge bg-success">Completed</span>
                     {% elif needs_list.status == 'Rejected' %}
                       <span class="badge bg-danger">Rejected</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ needs_list.status }}</span>
                     {% endif %}
                   </td>
                   <td>{{ needs_list.items|length }} items</td>

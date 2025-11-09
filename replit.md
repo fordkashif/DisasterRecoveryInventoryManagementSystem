@@ -97,6 +97,9 @@ Uses Pandas for CSV import and export, facilitating bulk data entry, spreadsheet
 ### Session Management
 Utilizes Flask's built-in session handling with a secret key from environment variables.
 
+### Status Consistency and Data Migration
+The Needs List workflow uses 9 official statuses: Draft, Submitted, Fulfilment Prepared, Awaiting Approval, Approved, Dispatched, Received, Completed, Rejected. These are consistently displayed across all user interfaces (Agency Hub, Logistics Officer, Logistics Manager, Admin). A centralized NeedsListStatus enum should be implemented in future to prevent status string inconsistencies. Note: "Under Review" belongs to DistributionPackage, not NeedsList. Legacy "Fulfilled" status has been replaced with "Completed" in all queries and templates. If existing database records contain "Fulfilled" status, run the migration script: `python migrate_fulfilled_to_completed.py`
+
 ## External Dependencies
 
 ### Core Framework Dependencies

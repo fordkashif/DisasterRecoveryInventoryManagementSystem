@@ -908,24 +908,25 @@ def dashboard():
         category_data.append(stats['total_units'])
     
     # Needs Lists stats
+    # TODO: Create centralized NeedsListStatus enum to prevent status string inconsistencies
     needs_lists_draft = NeedsList.query.filter_by(status='Draft').count()
     needs_lists_submitted = NeedsList.query.filter_by(status='Submitted').count()
     needs_lists_awaiting = NeedsList.query.filter(
         NeedsList.status.in_(['Awaiting Approval', 'Fulfilment Prepared'])
     ).count()
-    needs_lists_fulfilled = NeedsList.query.filter_by(status='Fulfilled').count()
+    needs_lists_completed = NeedsList.query.filter_by(status='Completed').count()
     
     needs_lists_stats = {
         'pending': needs_lists_submitted + needs_lists_awaiting,
         'in_progress': needs_lists_awaiting,
-        'fulfilled': needs_lists_fulfilled
+        'completed': needs_lists_completed
     }
     
     needs_lists_chart_data = {
         'Draft': needs_lists_draft,
         'Submitted': needs_lists_submitted,
         'In Progress': needs_lists_awaiting,
-        'Fulfilled': needs_lists_fulfilled
+        'Completed': needs_lists_completed
     }
     
     # Total distributors (this was being queried but not used)
@@ -1965,7 +1966,7 @@ def needs_lists():
         # Logistics Manager view: Can do EVERYTHING - prepare AND approve
         submitted_lists = NeedsList.query.filter_by(status='Submitted').order_by(NeedsList.submitted_at.desc()).all()
         awaiting_approval = NeedsList.query.filter(NeedsList.status.in_(['Fulfilment Prepared', 'Awaiting Approval'])).order_by(NeedsList.prepared_at.desc()).all()
-        approved_lists = NeedsList.query.filter(NeedsList.status.in_(['Approved', 'Fulfilled'])).order_by(NeedsList.approved_at.desc()).limit(20).all()
+        approved_lists = NeedsList.query.filter(NeedsList.status.in_(['Approved', 'Dispatched', 'Received', 'Completed'])).order_by(NeedsList.approved_at.desc()).limit(20).all()
         rejected_lists = NeedsList.query.filter_by(status='Rejected').order_by(NeedsList.updated_at.desc()).limit(20).all()
         return render_template("logistics_manager_needs_lists.html", submitted_lists=submitted_lists, awaiting_approval=awaiting_approval, approved_lists=approved_lists, rejected_lists=rejected_lists)
     

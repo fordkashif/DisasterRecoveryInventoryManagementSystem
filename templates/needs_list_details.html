@@ -17,8 +17,14 @@
           <span class="badge bg-success ms-2">Approved</span>
         {% elif needs_list.status == 'Dispatched' %}
           <span class="badge bg-info ms-2">Dispatched</span>
+        {% elif needs_list.status == 'Received' %}
+          <span class="badge bg-primary ms-2">Received</span>
         {% elif needs_list.status == 'Completed' %}
           <span class="badge bg-success ms-2">Completed</span>
+        {% elif needs_list.status == 'Rejected' %}
+          <span class="badge bg-danger ms-2">Rejected</span>
+        {% else %}
+          <span class="badge bg-secondary ms-2">{{ needs_list.status }}</span>
         {% endif %}
       </h2>
       <p class="text-muted mb-0">{{ needs_list.agency_hub.name }} ({{ needs_list.agency_hub.hub_type }})</p>
@@ -109,7 +115,7 @@
                 <tr>
                   <th style="width: 25%;">Item</th>
                   <th style="width: 10%;" class="text-center">Requested</th>
-                  {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}
+                  {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
                     <th style="width: 30%;">Allocate from Hubs</th>
                     <th style="width: 10%;" class="text-center">Allocated</th>
                     <th style="width: 10%;" class="text-center">Remaining</th>
@@ -121,7 +127,7 @@
                 {% for item_entry in needs_list.items %}
                   {% set total_allocated = 0 %}
                   {% set item_fulfilments = [] %}
-                  {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}
+                  {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
                     {% for fulfilment in needs_list.fulfilments %}
                       {% if fulfilment.item_sku == item_entry.item_sku %}
                         {% set total_allocated = total_allocated + fulfilment.allocated_qty %}
@@ -144,7 +150,7 @@
                       <strong class="text-primary">{{ item_entry.requested_qty }}</strong>
                       <small class="d-block text-muted">{{ item_entry.item.unit }}</small>
                     </td>
-                    {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}
+                    {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
                       <td>
                         {% if item_fulfilments %}
                           <div class="d-flex flex-column gap-1">
@@ -168,7 +174,7 @@
                     {% endif %}
                     <td class="align-middle">
                       <div class="status-cell">
-                        {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}
+                        {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
                           {% if total_allocated == 0 %}
                             <span class="badge bg-secondary w-100 mb-1">Unallocated</span>
                             <div class="progress" style="height: 4px;">
@@ -222,16 +228,16 @@
                   </div>
                 </div>
                 
-                <div class="workflow-step {% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}completed{% endif %}">
-                  <div class="step-icon"><i class="bi bi-{% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}check-circle-fill{% else %}send{% endif %}"></i></div>
+                <div class="workflow-step {% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}completed{% endif %}">
+                  <div class="step-icon"><i class="bi bi-{% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}check-circle-fill{% else %}send{% endif %}"></i></div>
                   <div class="step-content">
                     <strong>2. Submit to ODPEM</strong>
                     <p class="mb-0 small text-muted">Send request for review</p>
                   </div>
                 </div>
                 
-                <div class="workflow-step {% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}active{% elif needs_list.status in ['Dispatched', 'Completed'] %}completed{% endif %}">
-                  <div class="step-icon"><i class="bi bi-{% if needs_list.status in ['Dispatched', 'Completed'] %}check-circle-fill{% elif needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}hourglass-split{% else %}clock{% endif %}"></i></div>
+                <div class="workflow-step {% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}active{% elif needs_list.status in ['Dispatched', 'Received', 'Completed'] %}completed{% endif %}">
+                  <div class="step-icon"><i class="bi bi-{% if needs_list.status in ['Dispatched', 'Received', 'Completed'] %}check-circle-fill{% elif needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}hourglass-split{% else %}clock{% endif %}"></i></div>
                   <div class="step-content">
                     <strong>3. ODPEM Processing</strong>
                     <p class="mb-0 small text-muted">
@@ -244,12 +250,12 @@
                   </div>
                 </div>
                 
-                <div class="workflow-step {% if needs_list.status == 'Dispatched' %}active{% elif needs_list.status == 'Completed' %}completed{% endif %}">
-                  <div class="step-icon"><i class="bi bi-{% if needs_list.status == 'Completed' %}check-circle-fill{% elif needs_list.status == 'Dispatched' %}truck{% else %}box-seam{% endif %}"></i></div>
+                <div class="workflow-step {% if needs_list.status == 'Dispatched' %}active{% elif needs_list.status in ['Received', 'Completed'] %}completed{% endif %}">
+                  <div class="step-icon"><i class="bi bi-{% if needs_list.status in ['Received', 'Completed'] %}check-circle-fill{% elif needs_list.status == 'Dispatched' %}truck{% else %}box-seam{% endif %}"></i></div>
                   <div class="step-content">
                     <strong>4. Receive Items</strong>
                     <p class="mb-0 small text-muted">
-                      {% if needs_list.status == 'Completed' %}
+                      {% if needs_list.status in ['Received', 'Completed'] %}
                         Items received and confirmed
                       {% elif needs_list.status == 'Dispatched' %}
                         Items dispatched - confirm receipt
@@ -275,6 +281,8 @@
                   Your request has been approved and will be dispatched soon.
                 {% elif needs_list.status == 'Dispatched' %}
                   Your items have been dispatched! Please confirm receipt when they arrive.
+                {% elif needs_list.status == 'Received' %}
+                  Your items have been received. Completing final processing.
                 {% elif needs_list.status == 'Completed' %}
                   Your items have been received and confirmed. Request is complete!
                 {% elif needs_list.status == 'Rejected' %}
@@ -284,7 +292,7 @@
             {% else %}
               {# ODPEM Staff View - Internal workflow with details #}
               <div class="workflow-steps">
-                <div class="workflow-step {% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}completed{% endif %}">
+                <div class="workflow-step {% if needs_list.status in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}completed{% endif %}">
                   <div class="step-icon"><i class="bi bi-check-circle-fill"></i></div>
                   <div class="step-content">
                     <strong>Submitted</strong>
@@ -292,7 +300,7 @@
                   </div>
                 </div>
                 
-                <div class="workflow-step {% if needs_list.status == 'Submitted' %}active{% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Completed'] %}completed{% endif %}">
+                <div class="workflow-step {% if needs_list.status == 'Submitted' %}active{% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}completed{% endif %}">
                   <div class="step-icon"><i class="bi bi-gear-fill"></i></div>
                   <div class="step-content">
                     <strong>Prepare</strong>
@@ -300,7 +308,7 @@
                   </div>
                 </div>
                 
-                <div class="workflow-step {% if needs_list.status == 'Awaiting Approval' %}active{% elif needs_list.status in ['Approved', 'Dispatched', 'Completed'] %}completed{% endif %}">
+                <div class="workflow-step {% if needs_list.status == 'Awaiting Approval' %}active{% elif needs_list.status in ['Approved', 'Dispatched', 'Received', 'Completed'] %}completed{% endif %}">
                   <div class="step-icon"><i class="bi bi-person-check"></i></div>
                   <div class="step-content">
                     <strong>Approval</strong>
@@ -308,7 +316,7 @@
                   </div>
                 </div>
                 
-                <div class="workflow-step {% if needs_list.status in ['Approved', 'Dispatched', 'Completed'] %}completed{% endif %}">
+                <div class="workflow-step {% if needs_list.status in ['Approved', 'Dispatched', 'Received', 'Completed'] %}completed{% endif %}">
                   <div class="step-icon"><i class="bi bi-check-circle"></i></div>
                   <div class="step-content">
                     <strong>Execute</strong>
@@ -340,10 +348,14 @@
                     <span class="badge bg-success">Approved</span>
                   {% elif needs_list.status == 'Dispatched' %}
                     <span class="badge bg-info">Dispatched</span>
+                  {% elif needs_list.status == 'Received' %}
+                    <span class="badge bg-primary">Received</span>
                   {% elif needs_list.status == 'Completed' %}
                     <span class="badge bg-success">Completed</span>
-                  {% elif needs_list.status == 'Fulfilled' %}
-                    <span class="badge bg-success">Fulfilled</span>
+                  {% elif needs_list.status == 'Rejected' %}
+                    <span class="badge bg-danger">Rejected</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ needs_list.status }}</span>
                   {% endif %}
                 </span>
               </div>
