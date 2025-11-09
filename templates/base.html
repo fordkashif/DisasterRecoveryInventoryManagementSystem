@@ -313,7 +313,7 @@
       <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
         <i class="bi bi-list"></i>
       </button>
-      <a href="{{ url_for('dashboard') }}" class="header-brand ms-3">
+      <a href="{% if current_user.assigned_location and current_user.assigned_location.hub_type == 'AGENCY' %}{{ url_for('needs_lists') }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="header-brand ms-3">
         <img src="{{ url_for('static', filename='images/odpem_logo.png') }}" alt="ODPEM Logo">
         <img src="{{ url_for('static', filename='images/jamaica_coat_of_arms.png') }}" alt="Jamaica Coat of Arms" style="height: 40px;">
         <span>DRIMS</span>
@@ -348,17 +348,9 @@
         <!-- AGENCY Hub Menu -->
         <div class="nav-section">
           <div class="nav-section-title">Menu</div>
-          <a href="{{ url_for('dashboard') }}" class="nav-item-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
-            <i class="bi bi-grid-1x2"></i>
-            <span class="nav-label">Dashboard</span>
-          </a>
           <a href="{{ url_for('needs_lists') }}" class="nav-item-link {% if 'needs' in request.endpoint %}active{% endif %}">
             <i class="bi bi-clipboard-check"></i>
             <span class="nav-label">Needs Lists</span>
-          </a>
-          <a href="{{ url_for('packages') }}" class="nav-item-link {% if 'package' in request.endpoint %}active{% endif %}">
-            <i class="bi bi-box-seam-fill"></i>
-            <span class="nav-label">Packages</span>
           </a>
           <a href="{{ url_for('transactions') }}" class="nav-item-link {% if request.endpoint == 'transactions' %}active{% endif %}">
             <i class="bi bi-clock-history"></i>

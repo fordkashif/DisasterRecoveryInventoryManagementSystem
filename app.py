@@ -732,6 +732,11 @@ def logout():
 def dashboard():
     from datetime import datetime, timedelta
     
+    # Block Agency hub users from accessing dashboard
+    if current_user.assigned_location and current_user.assigned_location.hub_type == 'AGENCY':
+        flash("This page is not available for Agency hub users.", "warning")
+        return redirect(url_for("needs_lists"))
+    
     # KPIs - Inventory
     total_items = Item.query.count()
     # Exclude AGENCY hubs from overall inventory displays
