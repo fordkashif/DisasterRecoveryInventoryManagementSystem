@@ -45,6 +45,9 @@ Provides a comprehensive overview with KPIs, inventory by category, stock by loc
 ### Authentication and User Management
 Implements Flask-Login with role-based access control (RBAC) for seven user roles: ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER, WAREHOUSE_STAFF, FIELD_PERSONNEL, EXECUTIVE, and AUDITOR. Features include secure password hashing, session management, role-aware navigation, and route protection. An ADMIN-only web interface manages user accounts. AGENCY hub users have a simplified navigation menu focused on Needs Lists and History.
 
+### In-App Notification System
+Provides real-time notifications to Agency Hub users for needs list lifecycle events. Notifications are automatically created when needs lists are submitted, approved, dispatched, or received. The system features a bell icon with unread badge counter in the navigation, a Bootstrap offcanvas panel for quick access, auto-polling every 30 seconds with visibility-aware pausing, individual and batch "mark as read" functionality, and a dedicated notification history page. The service layer fans out notifications to all active users assigned to the agency hub with fail-safe error handling. API endpoints are secured with user ownership verification and hub assignment checks. Notifications include audit trail information (triggered_by, needs_list_number) stored in JSON payload. The system supports pagination (20-50 per page), archival flags for retention policies, and composite indexes for efficient queries.
+
 ### File Storage
 Supports file attachments stored locally with UUID-based filenames, with a modular service for future cloud migration.
 
