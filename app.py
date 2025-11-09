@@ -550,6 +550,54 @@ def can_delete_needs_list(user, needs_list):
     
     return (True, None)
 
+def can_dispatch_needs_list(user, needs_list):
+    """
+    Check if user can dispatch an approved needs list.
+    Only Logistics Officers and Managers can dispatch after approval.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Must be in Awaiting Approval status (ready to approve & dispatch simultaneously)
+    # OR already Approved status (dispatch after separate approval)
+    if needs_list.status not in ['Awaiting Approval', 'Approved']:
+        return (False, "Only approved needs lists can be dispatched.")
+    
+    # Only ADMIN, Logistics Officers, and Logistics Managers can dispatch
+    if user.role not in [ROLE_ADMIN, ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER]:
+        return (False, "Only Logistics Officers and Managers can dispatch items.")
+    
+    return (True, None)
+
+def can_confirm_receipt(user, needs_list):
+    """
+    Check if user can confirm receipt of a dispatched needs list.
+    Only the Agency Hub that requested the items can confirm receipt.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Must be in Dispatched status
+    if needs_list.status != 'Dispatched':
+        return (False, "Only dispatched needs lists can have receipt confirmed.")
+    
+    # ADMIN can always confirm
+    if user.role == ROLE_ADMIN:
+        return (True, None)
+    
+    # User must be assigned to the agency hub that owns this needs list
+    if not user.assigned_location_id:
+        return (False, "You must be assigned to a hub to confirm receipt.")
+    
+    user_depot = Depot.query.get(user.assigned_location_id)
+    if not user_depot:
+        return (False, "Invalid hub assignment.")
+    
+    if user_depot.id != needs_list.agency_hub_id:
+        return (False, "Only the requesting hub can confirm receipt.")
+    
+    return (True, None)
+
 def check_stock_availability(items_requested):
     """
     Check stock availability for requested items and calculate allocated quantities.
