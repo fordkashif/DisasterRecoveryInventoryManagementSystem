@@ -2115,6 +2115,23 @@ def needs_list_submit(list_id):
         needs_list_id=needs_list.id
     )
     
+    # Notify Admins about new needs list submissions for system monitoring
+    create_notifications_for_role(
+        role=ROLE_ADMIN,
+        title="Needs List Submitted",
+        message=f"New needs list {needs_list.list_number} submitted by {needs_list.agency_hub.name} for system monitoring.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "submitted_by": current_user.full_name,
+            "submitted_by_id": current_user.id,
+            "event_type": "system_monitoring"
+        },
+        needs_list_id=needs_list.id
+    )
+    
     flash(f"Needs list {needs_list.list_number} submitted successfully for logistics review.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
@@ -2283,6 +2300,38 @@ def needs_list_approve(list_id):
         triggered_by_user=current_user
     )
     
+    # Notify Logistics Officers about approved items ready for dispatch
+    create_notifications_for_role(
+        role=ROLE_LOGISTICS_OFFICER,
+        title="Items Approved - Ready for Dispatch",
+        message=f"Needs list {needs_list.list_number} for {needs_list.agency_hub.name} has been approved and is ready for dispatch.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "approved_by": current_user.full_name,
+            "approved_by_id": current_user.id
+        },
+        needs_list_id=needs_list.id
+    )
+    
+    # Notify Warehouse Staff about approved items to prepare for dispatch
+    create_notifications_for_role(
+        role=ROLE_WAREHOUSE_STAFF,
+        title="Items Approved - Prepare for Dispatch",
+        message=f"Needs list {needs_list.list_number} for {needs_list.agency_hub.name} has been approved. Prepare items for dispatch.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "approved_by": current_user.full_name,
+            "approved_by_id": current_user.id
+        },
+        needs_list_id=needs_list.id
+    )
+    
     flash(f"Needs list {needs_list.list_number} approved successfully. Ready for dispatch.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
@@ -2433,6 +2482,23 @@ def needs_list_dispatch(list_id):
         needs_list_id=needs_list.id
     )
     
+    # Notify Field Personnel about items dispatched for potential distribution support
+    create_notifications_for_role(
+        role=ROLE_FIELD_PERSONNEL,
+        title="Items Dispatched to Agency",
+        message=f"Items for needs list {needs_list.list_number} dispatched to {needs_list.agency_hub.name}. Be ready to assist with distribution if needed.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "dispatched_by": current_user.full_name,
+            "dispatched_by_id": current_user.id,
+            "event_type": "distribution_support"
+        },
+        needs_list_id=needs_list.id
+    )
+    
     flash(f"Needs list {needs_list.list_number} dispatched successfully. Stock transfers completed and {requesting_hub.name} will be notified.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
@@ -2466,6 +2532,54 @@ def needs_list_confirm_receipt(list_id):
         message=f"Receipt has been confirmed for needs list {needs_list.list_number} by {current_user.full_name}. Request is now completed.",
         notification_type="received",
         triggered_by_user=current_user
+    )
+    
+    # Notify Auditors about completed transactions for audit trail review
+    create_notifications_for_role(
+        role=ROLE_AUDITOR,
+        title="Needs List Completed",
+        message=f"Needs list {needs_list.list_number} from {needs_list.agency_hub.name} has been completed and is ready for audit review.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "received_by": current_user.full_name,
+            "received_by_id": current_user.id,
+            "completed_at": datetime.utcnow().isoformat()
+        },
+        needs_list_id=needs_list.id
+    )
+    
+    # Notify Logistics Managers about completion for oversight
+    create_notifications_for_role(
+        role=ROLE_LOGISTICS_MANAGER,
+        title="Needs List Completed",
+        message=f"Needs list {needs_list.list_number} to {needs_list.agency_hub.name} has been completed successfully.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "received_by": current_user.full_name,
+            "received_by_id": current_user.id
+        },
+        needs_list_id=needs_list.id
+    )
+    
+    # Notify Executives about completed deliveries for high-level oversight
+    create_notifications_for_role(
+        role=ROLE_EXECUTIVE,
+        title="Supply Delivery Completed",
+        message=f"Needs list {needs_list.list_number} delivery to {needs_list.agency_hub.name} has been successfully completed.",
+        notification_type="task_assigned",
+        link_url=f"/needs-lists/{needs_list.id}",
+        payload_data={
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name,
+            "event_type": "delivery_completed"
+        },
+        needs_list_id=needs_list.id
     )
     
     flash(f"Receipt confirmed for needs list {needs_list.list_number}. Request is now completed.", "success")

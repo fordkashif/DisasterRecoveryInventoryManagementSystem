@@ -45,8 +45,21 @@ Provides a comprehensive overview with KPIs, inventory by category, stock by loc
 ### Authentication and User Management
 Implements Flask-Login with role-based access control (RBAC) for seven user roles: ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER, WAREHOUSE_STAFF, FIELD_PERSONNEL, EXECUTIVE, and AUDITOR. Features include secure password hashing, session management, role-aware navigation, and route protection. An ADMIN-only web interface manages user accounts. AGENCY hub users have a simplified navigation menu focused on Needs Lists and History.
 
-### In-App Notification System
-Provides real-time notifications to Agency Hub users for needs list lifecycle events. Notifications are automatically created when needs lists are submitted, approved, dispatched, or received. The system features a bell icon with unread badge counter in the navigation, a Bootstrap offcanvas panel for quick access, auto-polling every 30 seconds with visibility-aware pausing, individual and batch "mark as read" functionality, and a dedicated notification history page. The service layer fans out notifications to all active users assigned to the agency hub with fail-safe error handling. API endpoints are secured with user ownership verification and hub assignment checks. Notifications include audit trail information (triggered_by, needs_list_number) stored in JSON payload. The system supports pagination (20-50 per page), archival flags for retention policies, and composite indexes for efficient queries.
+### Universal In-App Notification System
+Provides real-time notifications to all user roles for relevant workflow events. The system features role-specific notification triggers to ensure each user receives actionable alerts:
+
+**Notification Triggers by Role:**
+-   **Agency Hub Users**: Needs list lifecycle events (submitted, approved, dispatched, received)
+-   **Logistics Officers**: New submissions to prepare, approved items ready for dispatch
+-   **Logistics Managers**: Fulfillment awaiting approval, completed needs lists for oversight
+-   **Warehouse Staff**: Approved items to prepare, dispatch completion confirmations
+-   **Auditors**: Completed needs lists ready for audit trail review
+-   **Field Personnel**: Items dispatched to agencies (distribution support awareness)
+-   **Executives**: Supply delivery completions (high-level oversight)
+-   **Admin**: New needs list submissions (system monitoring)
+
+**Technical Architecture:**
+The system uses generalized service functions (`create_notifications_for_users`, `create_notifications_for_role`) for flexible fan-out to target recipients. Notifications are automatically created at key workflow transitions with role-appropriate messages and links. The UI features a bell icon with unread badge counter in the navigation for all users, a Bootstrap offcanvas panel for quick access, auto-polling every 30 seconds with visibility-aware pausing, and individual/batch "mark as read" functionality. API endpoints (`/notifications/*`) are role-agnostic and secured with user ownership verification. Backward-compatible `/agency/*` aliases are maintained for existing integrations. Notifications include comprehensive audit trail information (triggered_by, needs_list_number, timestamps) stored in JSON payload. The system supports pagination (20-50 per page), archival flags for retention policies, and composite indexes for efficient queries.
 
 ### File Storage
 Supports file attachments stored locally with UUID-based filenames, with a modular service for future cloud migration.
