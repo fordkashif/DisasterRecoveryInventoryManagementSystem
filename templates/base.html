@@ -352,6 +352,11 @@
             <i class="bi bi-clipboard-check"></i>
             <span class="nav-label">Needs Lists</span>
           </a>
+          <a href="#" class="nav-item-link" data-bs-toggle="offcanvas" data-bs-target="#notificationsOffcanvas" aria-controls="notificationsOffcanvas">
+            <i class="bi bi-bell"></i>
+            <span class="nav-label">Notifications</span>
+            <span id="notificationBadge" class="badge bg-danger ms-2" style="display: none;">0</span>
+          </a>
           <a href="{{ url_for('transactions') }}" class="nav-item-link {% if request.endpoint == 'transactions' %}active{% endif %}">
             <i class="bi bi-clock-history"></i>
             <span class="nav-label">History</span>
@@ -471,6 +476,37 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+
+  <!-- Notifications Offcanvas for Agency Hub Users -->
+  {% if is_agency_user %}
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="notificationsOffcanvas" aria-labelledby="notificationsOffcanvasLabel">
+    <div class="offcanvas-header bg-primary text-white">
+      <h5 class="offcanvas-title" id="notificationsOffcanvasLabel">
+        <i class="bi bi-bell me-2"></i>Notifications
+      </h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+        <small class="text-muted"><span id="notificationCount">0</span> notifications</small>
+        <button id="markAllReadBtn" class="btn btn-sm btn-outline-primary" onclick="markAllNotificationsRead()">
+          <i class="bi bi-check-all me-1"></i>Mark all read
+        </button>
+      </div>
+      <div id="notificationsList" class="list-group list-group-flush" style="max-height: calc(100vh - 180px); overflow-y: auto;">
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-bell-slash" style="font-size: 2rem;"></i>
+          <p class="mb-0 mt-2">Loading notifications...</p>
+        </div>
+      </div>
+      <div class="p-3 border-top">
+        <a href="{{ url_for('agency_notifications_history') }}" class="btn btn-outline-secondary w-100">
+          <i class="bi bi-clock-history me-1"></i>View Full History
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -498,6 +534,187 @@
         }
       });
     });
+
+    {% if is_agency_user %}
+    // Notification System for Agency Hub Users
+    let notificationPollInterval = null;
+
+    // Icon and color mapping for notification types
+    const notificationTypeConfig = {
+      'submitted': { icon: 'bi-send', color: 'primary', bgColor: '#e7f1ff' },
+      'approved': { icon: 'bi-check-circle', color: 'success', bgColor: '#d1e7dd' },
+      'dispatched': { icon: 'bi-truck', color: 'info', bgColor: '#cff4fc' },
+      'received': { icon: 'bi-box-seam', color: 'success', bgColor: '#d1e7dd' },
+      'comment': { icon: 'bi-chat-left-text', color: 'warning', bgColor: '#fff3cd' }
+    };
+
+    // Fetch unread notification count
+    async function fetchUnreadCount() {
+      try {
+        const response = await fetch('/agency/notifications/unread-count');
+        const data = await response.json();
+        updateNotificationBadge(data.count);
+      } catch (error) {
+        console.error('Error fetching unread count:', error);
+      }
+    }
+
+    // Update the notification badge
+    function updateNotificationBadge(count) {
+      const badge = document.getElementById('notificationBadge');
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Fetch and display notifications list
+    async function fetchNotifications() {
+      try {
+        const response = await fetch('/agency/notifications/list?limit=20');
+        const data = await response.json();
+        displayNotifications(data.notifications);
+        document.getElementById('notificationCount').textContent = data.total;
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    }
+
+    // Display notifications in the offcanvas
+    function displayNotifications(notifications) {
+      const listContainer = document.getElementById('notificationsList');
+      
+      if (notifications.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-bell-slash" style="font-size: 2rem;"></i>
+            <p class="mb-0 mt-2">No notifications</p>
+          </div>
+        `;
+        return;
+      }
+
+      listContainer.innerHTML = notifications.map(notif => {
+        const config = notificationTypeConfig[notif.type] || { icon: 'bi-bell', color: 'secondary', bgColor: '#f8f9fa' };
+        const isUnread = notif.status === 'unread';
+        
+        return `
+          <a href="${notif.link_url || '#'}" 
+             class="list-group-item list-group-item-action ${isUnread ? 'list-group-item-light' : ''}" 
+             onclick="markNotificationRead(${notif.id}, event)"
+             style="${isUnread ? 'border-left: 3px solid var(--bs-primary);' : ''}">
+            <div class="d-flex w-100 align-items-start">
+              <div class="me-3 mt-1">
+                <i class="bi ${config.icon} text-${config.color}" style="font-size: 1.5rem;"></i>
+              </div>
+              <div class="flex-grow-1">
+                <div class="d-flex w-100 justify-content-between">
+                  <h6 class="mb-1 ${isUnread ? 'fw-bold' : ''}">${notif.title}</h6>
+                  ${isUnread ? '<span class="badge bg-primary">New</span>' : ''}
+                </div>
+                <p class="mb-1 small">${notif.message}</p>
+                <small class="text-muted"><i class="bi bi-clock me-1"></i>${formatRelativeTime(notif.created_at_iso)}</small>
+              </div>
+            </div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    // Mark a single notification as read
+    async function markNotificationRead(notificationId, event) {
+      try {
+        const response = await fetch(`/agency/notifications/${notificationId}/mark-read`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          // Refresh both count and list
+          await Promise.all([fetchUnreadCount(), fetchNotifications()]);
+        }
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+
+    // Mark all notifications as read
+    async function markAllNotificationsRead() {
+      try {
+        const response = await fetch('/agency/notifications/mark-all-read', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          // Refresh both count and list
+          await Promise.all([fetchUnreadCount(), fetchNotifications()]);
+        }
+      } catch (error) {
+        console.error('Error marking all notifications as read:', error);
+      }
+    }
+
+    // Format relative time (e.g., "2 hours ago")
+    function formatRelativeTime(isoString) {
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      
+      return date.toLocaleDateString();
+    }
+
+    // When offcanvas is opened, fetch fresh notifications
+    document.getElementById('notificationsOffcanvas').addEventListener('show.bs.offcanvas', function () {
+      fetchNotifications();
+    });
+
+    // Start polling for notifications every 30 seconds
+    function startNotificationPolling() {
+      // Initial fetch
+      fetchUnreadCount();
+      
+      // Poll every 30 seconds
+      notificationPollInterval = setInterval(() => {
+        fetchUnreadCount();
+      }, 30000); // 30 seconds
+    }
+
+    // Stop polling when page is hidden
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (notificationPollInterval) {
+          clearInterval(notificationPollInterval);
+          notificationPollInterval = null;
+        }
+      } else {
+        if (!notificationPollInterval) {
+          startNotificationPolling();
+        }
+      }
+    });
+
+    // Start polling when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startNotificationPolling);
+    } else {
+      startNotificationPolling();
+    }
+    {% endif %}
   </script>
 </body>
 </html>

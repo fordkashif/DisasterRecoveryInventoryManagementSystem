@@ -3168,6 +3168,119 @@ def create_notification_table():
     except Exception as e:
         print(f"✗ Migration failed: {str(e)}")
 
+# ---------- Notification API Routes ----------
+
+@app.route("/agency/notifications/unread-count")
+@login_required
+def agency_notifications_unread_count():
+    """Get unread notification count for the current user (Agency hub users)"""
+    # Verify user is assigned to an Agency hub
+    if not current_user.assigned_location:
+        return jsonify({"count": 0})
+    
+    if current_user.assigned_location.hub_type != 'AGENCY':
+        return jsonify({"count": 0})
+    
+    count = Notification.query.filter(
+        Notification.user_id == current_user.id,
+        Notification.status == 'unread',
+        Notification.is_archived == False
+    ).count()
+    
+    return jsonify({"count": count})
+
+@app.route("/agency/notifications/list")
+@login_required
+def agency_notifications_list():
+    """Get paginated list of notifications for the current user (Agency hub users)"""
+    # Verify user is assigned to an Agency hub
+    if not current_user.assigned_location or current_user.assigned_location.hub_type != 'AGENCY':
+        return jsonify({"notifications": [], "total": 0, "has_more": False})
+    
+    # Pagination parameters
+    page = request.args.get('page', 1, type=int)
+    limit = min(request.args.get('limit', 20, type=int), 50)  # Max 50 per page
+    offset = (page - 1) * limit
+    
+    # Query notifications for this user (non-archived only by default)
+    query = Notification.query.filter(
+        Notification.user_id == current_user.id,
+        Notification.is_archived == False
+    ).order_by(Notification.created_at.desc())
+    
+    total = query.count()
+    notifications = query.offset(offset).limit(limit).all()
+    
+    # Serialize notifications
+    notifications_data = []
+    for notif in notifications:
+        notifications_data.append({
+            "id": notif.id,
+            "title": notif.title,
+            "message": notif.message,
+            "type": notif.type,
+            "status": notif.status,
+            "link_url": notif.link_url,
+            "created_at": notif.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            "created_at_iso": notif.created_at.isoformat(),
+        })
+    
+    return jsonify({
+        "notifications": notifications_data,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "has_more": total > (page * limit)
+    })
+
+@app.route("/agency/notifications/<int:notification_id>/mark-read", methods=["POST"])
+@login_required
+def agency_notification_mark_read(notification_id):
+    """Mark a single notification as read"""
+    notification = Notification.query.get_or_404(notification_id)
+    
+    # Security: verify this notification belongs to the current user
+    if notification.user_id != current_user.id:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    notification.status = 'read'
+    db.session.commit()
+    
+    return jsonify({"success": True, "id": notification_id})
+
+@app.route("/agency/notifications/mark-all-read", methods=["POST"])
+@login_required
+def agency_notifications_mark_all_read():
+    """Mark all unread notifications as read for the current user"""
+    if not current_user.assigned_location or current_user.assigned_location.hub_type != 'AGENCY':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    count = Notification.query.filter(
+        Notification.user_id == current_user.id,
+        Notification.status == 'unread',
+        Notification.is_archived == False
+    ).update({"status": "read"})
+    
+    db.session.commit()
+    
+    return jsonify({"success": True, "marked_count": count})
+
+@app.route("/agency/notifications/history")
+@login_required
+def agency_notifications_history():
+    """Full notification history page for Agency hub users"""
+    # Verify user is assigned to an Agency hub
+    if not current_user.assigned_location or current_user.assigned_location.hub_type != 'AGENCY':
+        flash("This page is only available for Agency hub users.", "warning")
+        return redirect(url_for("needs_lists"))
+    
+    # Get all notifications (including archived) for this user
+    notifications = Notification.query.filter(
+        Notification.user_id == current_user.id
+    ).order_by(Notification.created_at.desc()).all()
+    
+    return render_template("notifications_history.html", notifications=notifications)
+
 # ---------- Notification Service ----------
 def create_notification_for_agency_hub(needs_list, title, message, notification_type, triggered_by_user=None):
     """

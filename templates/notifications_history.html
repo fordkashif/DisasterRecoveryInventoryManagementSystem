@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Notification History - DRIMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-bell me-2"></i>Notification History</h1>
+      <p class="text-muted mb-0">View all your past notifications</p>
+    </div>
+    <div>
+      <a href="{{ url_for('needs_lists') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Needs Lists
+      </a>
+    </div>
+  </div>
+
+  <!-- Notifications List -->
+  {% if notifications %}
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for notif in notifications %}
+            <a href="{{ notif.link_url or '#' }}" class="list-group-item list-group-item-action {% if notif.status == 'unread' %}list-group-item-light{% endif %}" 
+               style="{% if notif.status == 'unread' %}border-left: 3px solid var(--bs-primary);{% endif %}">
+              <div class="d-flex w-100 align-items-start">
+                <!-- Icon -->
+                <div class="me-3 mt-1">
+                  {% if notif.type == 'submitted' %}
+                    <i class="bi bi-send text-primary" style="font-size: 1.5rem;"></i>
+                  {% elif notif.type == 'approved' %}
+                    <i class="bi bi-check-circle text-success" style="font-size: 1.5rem;"></i>
+                  {% elif notif.type == 'dispatched' %}
+                    <i class="bi bi-truck text-info" style="font-size: 1.5rem;"></i>
+                  {% elif notif.type == 'received' %}
+                    <i class="bi bi-box-seam text-success" style="font-size: 1.5rem;"></i>
+                  {% elif notif.type == 'comment' %}
+                    <i class="bi bi-chat-left-text text-warning" style="font-size: 1.5rem;"></i>
+                  {% else %}
+                    <i class="bi bi-bell text-secondary" style="font-size: 1.5rem;"></i>
+                  {% endif %}
+                </div>
+
+                <!-- Content -->
+                <div class="flex-grow-1">
+                  <div class="d-flex w-100 justify-content-between align-items-start">
+                    <h6 class="mb-1 {% if notif.status == 'unread' %}fw-bold{% endif %}">
+                      {{ notif.title }}
+                    </h6>
+                    <div class="d-flex align-items-center">
+                      {% if notif.status == 'unread' %}
+                        <span class="badge bg-primary me-2">New</span>
+                      {% endif %}
+                      {% if notif.is_archived %}
+                        <span class="badge bg-secondary me-2">Archived</span>
+                      {% endif %}
+                      <small class="text-muted">
+                        {{ notif.created_at.strftime('%b %d, %Y') }}
+                      </small>
+                    </div>
+                  </div>
+                  <p class="mb-1">{{ notif.message }}</p>
+                  <small class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    {{ notif.created_at.strftime('%I:%M %p') }}
+                    {% if notif.needs_list %}
+                      <span class="ms-2">
+                        <i class="bi bi-link-45deg me-1"></i>
+                        <a href="{{ url_for('needs_list_details', list_id=notif.needs_list.id) }}" class="text-decoration-none">
+                          {{ notif.needs_list.list_number }}
+                        </a>
+                      </span>
+                    {% endif %}
+                  </small>
+                </div>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination Info -->
+    <div class="mt-3 text-muted text-center">
+      <small>Showing {{ notifications|length }} notifications</small>
+    </div>
+
+  {% else %}
+    <!-- Empty State -->
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-bell-slash text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3">No notifications yet</h5>
+        <p class="text-muted">You'll see notifications here as your needs lists are processed.</p>
+        <a href="{{ url_for('needs_lists') }}" class="btn btn-primary mt-2">
+          <i class="bi bi-clipboard-check me-1"></i>Go to Needs Lists
+        </a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
