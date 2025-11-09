@@ -12,205 +12,268 @@
     </a>
   </div>
 
-  <!-- Summary Panel -->
-  <div class="row mb-4">
-    <div class="col-md-3">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0">
-              <i class="bi bi-box text-primary" style="font-size: 2rem;"></i>
+  <div class="row">
+    <!-- Main Content Area -->
+    <div class="col-lg-8">
+      <!-- Summary Panel -->
+      <div class="row mb-4">
+        <div class="col-md-6 col-lg-3 mb-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                  <i class="bi bi-box text-primary" style="font-size: 2rem;"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <div class="text-muted small">Total Items</div>
+                  <div class="h4 mb-0" id="summary-total-items">{{ needs_list.items|length }}</div>
+                </div>
+              </div>
             </div>
-            <div class="flex-grow-1 ms-3">
-              <div class="text-muted small">Total Items</div>
-              <div class="h4 mb-0" id="summary-total-items">{{ needs_list.items|length }}</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3 mb-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                  <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <div class="text-muted small">Fully Allocated</div>
+                  <div class="h4 mb-0" id="summary-fully-allocated">0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3 mb-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                  <i class="bi bi-hourglass-split text-warning" style="font-size: 2rem;"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <div class="text-muted small">Partially Allocated</div>
+                  <div class="h4 mb-0" id="summary-partial">0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3 mb-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                  <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <div class="text-muted small">Over-Allocated</div>
+                  <div class="h4 mb-0" id="summary-over-allocated">0</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0">
-              <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+
+      <!-- Allocation Form -->
+      <form method="POST" id="fulfilmentForm">
+        {% for item_entry in needs_list.items %}
+          {% set item_index = loop.index0 %}
+          <div class="card mb-3 shadow-sm item-card" data-item-index="{{ item_index }}" data-requested="{{ item_entry.requested_qty }}">
+            <div class="card-header bg-white">
+              <div class="row align-items-center">
+                <div class="col-md-6">
+                  <h5 class="mb-1">{{ item_entry.item.name }}</h5>
+                  <small class="text-muted">SKU: {{ item_entry.item.sku }} • Unit: {{ item_entry.item.unit }}</small>
+                </div>
+                <div class="col-md-6 text-md-end">
+                  <div class="d-inline-flex align-items-center gap-3">
+                    <div>
+                      <small class="text-muted d-block">Requested</small>
+                      <strong class="text-primary">{{ item_entry.requested_qty }}</strong>
+                    </div>
+                    <div>
+                      <small class="text-muted d-block">Allocated</small>
+                      <strong class="allocated-total" id="allocated-{{ item_index }}">0</strong>
+                    </div>
+                    <div>
+                      <small class="text-muted d-block">Remaining</small>
+                      <strong class="remaining" id="remaining-{{ item_index }}">{{ item_entry.requested_qty }}</strong>
+                    </div>
+                    <span class="badge status-badge" id="status-{{ item_index }}">Unallocated</span>
+                  </div>
+                </div>
+              </div>
+              {% if item_entry.justification %}
+                <div class="mt-2">
+                  <small><i class="bi bi-info-circle me-1"></i><strong>Justification:</strong> {{ item_entry.justification }}</small>
+                </div>
+              {% endif %}
             </div>
-            <div class="flex-grow-1 ms-3">
-              <div class="text-muted small">Fully Allocated</div>
-              <div class="h4 mb-0" id="summary-fully-allocated">0</div>
+            <div class="card-body">
+              <input type="hidden" name="item_sku_{{ item_index }}" value="{{ item_entry.item_sku }}">
+              
+              <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                  <thead>
+                    <tr>
+                      <th style="width: 40%;">Source Hub</th>
+                      <th style="width: 20%;">
+                        Available
+                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" title="Current stock at this hub"></i>
+                      </th>
+                      <th style="width: 30%;">Allocate Quantity</th>
+                      <th style="width: 10%;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="allocations-{{ item_index }}">
+                    {% for hub in odpem_hubs %}
+                      {% set available = stock_map.get((item_entry.item_sku, hub.id), 0) %}
+                      {% if available > 0 %}
+                        <tr class="allocation-row" data-hub-id="{{ hub.id }}" data-max-available="{{ available }}">
+                          <td>
+                            <i class="bi bi-geo-alt me-1"></i>
+                            <strong>{{ hub.name }}</strong>
+                            <small class="text-muted ms-1">({{ hub.hub_type }})</small>
+                          </td>
+                          <td>
+                            <span class="badge bg-light text-dark available-stock">{{ available }}</span>
+                            <small class="text-muted ms-1">{{ item_entry.item.unit }}</small>
+                          </td>
+                          <td>
+                            <input type="hidden" name="depot_{{ item_index }}_{{ loop.index0 }}" value="{{ hub.id }}">
+                            <input 
+                              type="number" 
+                              class="form-control form-control-sm allocation-input" 
+                              name="qty_{{ item_index }}_{{ loop.index0 }}" 
+                              min="0" 
+                              max="{{ available }}" 
+                              value="0"
+                              data-item-index="{{ item_index }}"
+                              data-hub-id="{{ hub.id }}"
+                              data-max="{{ available }}"
+                              placeholder="0"
+                              aria-label="Allocate quantity from {{ hub.name }}">
+                            <div class="invalid-feedback">Cannot exceed available stock</div>
+                          </td>
+                          <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary fill-max-btn" data-input="qty_{{ item_index }}_{{ loop.index0 }}" title="Fill maximum available">
+                              <i class="bi bi-arrow-bar-up"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      {% endif %}
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div class="validation-message text-danger small mt-2" id="validation-{{ item_index }}" style="display: none;"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </form>
+    </div>
+
+    <!-- Workflow Guide Sidebar -->
+    <div class="col-lg-4">
+      <div class="position-sticky" style="top: 20px;">
+        <!-- Workflow Guide -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Workflow Guide</h5>
+          </div>
+          <div class="card-body">
+            <div class="workflow-steps">
+              <div class="workflow-step completed">
+                <div class="step-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="step-content">
+                  <strong>Request Submitted</strong>
+                  <p class="mb-0 small text-muted">{{ needs_list.agency_hub.name }} submitted their needs</p>
+                </div>
+              </div>
+              
+              <div class="workflow-step active">
+                <div class="step-icon"><i class="bi bi-gear-fill"></i></div>
+                <div class="step-content">
+                  <strong>Prepare Fulfilment</strong>
+                  <p class="mb-0 small text-muted">Allocate items from ODPEM hubs</p>
+                </div>
+              </div>
+              
+              {% if current_user.role == 'LOGISTICS_MANAGER' %}
+                <div class="workflow-step pending">
+                  <div class="step-icon"><i class="bi bi-check-circle"></i></div>
+                  <div class="step-content">
+                    <strong>Finalize & Execute</strong>
+                    <p class="mb-0 small text-muted">Stock transfers will be executed immediately</p>
+                  </div>
+                </div>
+              {% else %}
+                <div class="workflow-step pending">
+                  <div class="step-icon"><i class="bi bi-person-check"></i></div>
+                  <div class="step-content">
+                    <strong>Manager Approval</strong>
+                    <p class="mb-0 small text-muted">Logistics Manager will review</p>
+                  </div>
+                </div>
+                
+                <div class="workflow-step pending">
+                  <div class="step-icon"><i class="bi bi-check-circle"></i></div>
+                  <div class="step-content">
+                    <strong>Execute Transfer</strong>
+                    <p class="mb-0 small text-muted">Stock will be transferred</p>
+                  </div>
+                </div>
+              {% endif %}
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0">
-              <i class="bi bi-hourglass-split text-warning" style="font-size: 2rem;"></i>
-            </div>
-            <div class="flex-grow-1 ms-3">
-              <div class="text-muted small">Partially Allocated</div>
-              <div class="h4 mb-0" id="summary-partial">0</div>
-            </div>
+
+        <!-- Fulfilment Notes -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <label class="form-label fw-bold">
+              <i class="bi bi-chat-left-text me-1"></i>Fulfilment Notes
+              <span class="text-muted fw-normal">(Optional)</span>
+            </label>
+            <textarea 
+              class="form-control" 
+              name="fulfilment_notes" 
+              rows="3" 
+              form="fulfilmentForm"
+              placeholder="Add any notes about this fulfilment preparation..."></textarea>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div class="flex-shrink-0">
-              <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-            </div>
-            <div class="flex-grow-1 ms-3">
-              <div class="text-muted small">Over-Allocated</div>
-              <div class="h4 mb-0" id="summary-over-allocated">0</div>
-            </div>
-          </div>
+
+        <!-- Form Validation Alert -->
+        <div class="alert alert-danger" id="form-validation-alert" style="display: none;">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <span id="form-validation-message"></span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-grid gap-2">
+          {% if current_user.role == 'LOGISTICS_MANAGER' %}
+            <button type="submit" class="btn btn-success btn-lg" id="submitBtn" form="fulfilmentForm">
+              <i class="bi bi-check-circle-fill me-2"></i>Approve & Finalize Fulfilment
+            </button>
+          {% else %}
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" form="fulfilmentForm">
+              <i class="bi bi-check-circle me-2"></i>Submit for Manager Approval
+            </button>
+          {% endif %}
+          <a href="{{ url_for('needs_lists') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle me-1"></i>Cancel
+          </a>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Allocation Form -->
-  <form method="POST" id="fulfilmentForm">
-    {% for item_entry in needs_list.items %}
-      {% set item_index = loop.index0 %}
-      <div class="card mb-3 shadow-sm item-card" data-item-index="{{ item_index }}" data-requested="{{ item_entry.requested_qty }}">
-        <div class="card-header bg-white">
-          <div class="row align-items-center">
-            <div class="col-md-6">
-              <h5 class="mb-1">{{ item_entry.item.name }}</h5>
-              <small class="text-muted">SKU: {{ item_entry.item.sku }} • Unit: {{ item_entry.item.unit }}</small>
-            </div>
-            <div class="col-md-6 text-md-end">
-              <div class="d-inline-flex align-items-center gap-3">
-                <div>
-                  <small class="text-muted d-block">Requested</small>
-                  <strong class="text-primary">{{ item_entry.requested_qty }}</strong>
-                </div>
-                <div>
-                  <small class="text-muted d-block">Allocated</small>
-                  <strong class="allocated-total" id="allocated-{{ item_index }}">0</strong>
-                </div>
-                <div>
-                  <small class="text-muted d-block">Remaining</small>
-                  <strong class="remaining" id="remaining-{{ item_index }}">{{ item_entry.requested_qty }}</strong>
-                </div>
-                <span class="badge status-badge" id="status-{{ item_index }}">Unallocated</span>
-              </div>
-            </div>
-          </div>
-          {% if item_entry.justification %}
-            <div class="mt-2">
-              <small><i class="bi bi-info-circle me-1"></i><strong>Justification:</strong> {{ item_entry.justification }}</small>
-            </div>
-          {% endif %}
-        </div>
-        <div class="card-body">
-          <input type="hidden" name="item_sku_{{ item_index }}" value="{{ item_entry.item_sku }}">
-          
-          <div class="table-responsive">
-            <table class="table table-sm table-hover">
-              <thead>
-                <tr>
-                  <th style="width: 40%;">Source Hub</th>
-                  <th style="width: 20%;">
-                    Available
-                    <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" title="Current stock at this hub"></i>
-                  </th>
-                  <th style="width: 30%;">Allocate Quantity</th>
-                  <th style="width: 10%;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="allocations-{{ item_index }}">
-                {% for hub in odpem_hubs %}
-                  {% set available = stock_map.get((item_entry.item_sku, hub.id), 0) %}
-                  {% if available > 0 %}
-                    <tr class="allocation-row" data-hub-id="{{ hub.id }}" data-max-available="{{ available }}">
-                      <td>
-                        <i class="bi bi-geo-alt me-1"></i>
-                        <strong>{{ hub.name }}</strong>
-                        <small class="text-muted ms-1">({{ hub.hub_type }})</small>
-                      </td>
-                      <td>
-                        <span class="badge bg-light text-dark available-stock">{{ available }}</span>
-                        <small class="text-muted ms-1">{{ item_entry.item.unit }}</small>
-                      </td>
-                      <td>
-                        <input type="hidden" name="depot_{{ item_index }}_{{ loop.index0 }}" value="{{ hub.id }}">
-                        <input 
-                          type="number" 
-                          class="form-control form-control-sm allocation-input" 
-                          name="qty_{{ item_index }}_{{ loop.index0 }}" 
-                          min="0" 
-                          max="{{ available }}" 
-                          value="0"
-                          data-item-index="{{ item_index }}"
-                          data-hub-id="{{ hub.id }}"
-                          data-max="{{ available }}"
-                          placeholder="0"
-                          aria-label="Allocate quantity from {{ hub.name }}">
-                        <div class="invalid-feedback">Cannot exceed available stock</div>
-                      </td>
-                      <td>
-                        <button type="button" class="btn btn-sm btn-outline-primary fill-max-btn" data-input="qty_{{ item_index }}_{{ loop.index0 }}" title="Fill maximum available">
-                          <i class="bi bi-arrow-bar-up"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  {% endif %}
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          
-          <div class="validation-message text-danger small mt-2" id="validation-{{ item_index }}" style="display: none;"></div>
-        </div>
-      </div>
-    {% endfor %}
-
-    <!-- Fulfilment Notes -->
-    <div class="card mb-4 shadow-sm">
-      <div class="card-body">
-        <label class="form-label fw-bold">
-          <i class="bi bi-chat-left-text me-1"></i>Fulfilment Notes
-          <span class="text-muted fw-normal">(Optional)</span>
-        </label>
-        <textarea 
-          class="form-control" 
-          name="fulfilment_notes" 
-          rows="3" 
-          placeholder="Add any notes about this fulfilment preparation..."></textarea>
-      </div>
-    </div>
-
-    <!-- Form Validation Alert -->
-    <div class="alert alert-danger" id="form-validation-alert" style="display: none;">
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>
-      <span id="form-validation-message"></span>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="d-flex justify-content-end gap-2 mb-4">
-      <a href="{{ url_for('needs_lists') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-x-circle me-1"></i>Cancel
-      </a>
-      {% if current_user.role == 'LOGISTICS_MANAGER' %}
-        <button type="submit" class="btn btn-success" id="submitBtn">
-          <i class="bi bi-check-circle-fill me-1"></i>Approve & Finalize Fulfilment
-        </button>
-      {% else %}
-        <button type="submit" class="btn btn-primary" id="submitBtn">
-          <i class="bi bi-check-circle me-1"></i>Submit for Manager Approval
-        </button>
-      {% endif %}
-    </div>
-  </form>
 </div>
 
 <style>
@@ -252,6 +315,66 @@
   .available-stock {
     font-size: 0.9rem;
     font-weight: 600;
+  }
+  
+  /* Workflow Steps */
+  .workflow-steps {
+    position: relative;
+  }
+  
+  .workflow-step {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    position: relative;
+  }
+  
+  .workflow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 50px;
+    width: 2px;
+    height: calc(100% - 20px);
+    background: #dee2e6;
+  }
+  
+  .workflow-step.completed::after {
+    background: #198754;
+  }
+  
+  .workflow-step.active::after {
+    background: #0d6efd;
+  }
+  
+  .step-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    z-index: 1;
+    background: white;
+  }
+  
+  .workflow-step.completed .step-icon {
+    color: #198754;
+  }
+  
+  .workflow-step.active .step-icon {
+    color: #0d6efd;
+    background: #e7f1ff;
+  }
+  
+  .workflow-step.pending .step-icon {
+    color: #6c757d;
+  }
+  
+  .step-content {
+    flex-grow: 1;
   }
 </style>
 
