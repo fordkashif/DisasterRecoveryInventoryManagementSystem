@@ -127,6 +127,7 @@
                     <td>
                       <div class="allocation-controls">
                         {% set available_hubs = [] %}
+                        {% set depot_counter = namespace(value=0) %}
                         {% for hub in odpem_hubs %}
                           {% set available = stock_map.get((item_entry.item_sku, hub.id), 0) %}
                           {% if available > 0 %}
@@ -142,11 +143,11 @@
                                   <span class="badge bg-light text-dark available-stock" style="font-size: 0.75rem;">{{ available }}</span>
                                 </div>
                                 <div class="col-4">
-                                  <input type="hidden" name="depot_{{ item_index }}_{{ loop.index0 }}" value="{{ hub.id }}">
+                                  <input type="hidden" name="depot_{{ item_index }}_{{ depot_counter.value }}" value="{{ hub.id }}">
                                   <input 
                                     type="number" 
                                     class="form-control form-control-sm allocation-input" 
-                                    name="qty_{{ item_index }}_{{ loop.index0 }}" 
+                                    name="qty_{{ item_index }}_{{ depot_counter.value }}" 
                                     min="0" 
                                     max="{{ available }}" 
                                     value="0"
@@ -158,6 +159,7 @@
                                 </div>
                               </div>
                             </div>
+                            {% set depot_counter.value = depot_counter.value + 1 %}
                           {% endif %}
                         {% endfor %}
                         {% if available_hubs|length == 0 %}
