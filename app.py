@@ -380,6 +380,164 @@ def generate_needs_list_number():
         new_num = 1
     return f"NL-{new_num:06d}"
 
+# ---------- Needs List Permission Helpers ----------
+
+def can_view_needs_list(user, needs_list):
+    """
+    Check if user can view a specific needs list.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # ADMIN has full access
+    if user.role == ROLE_ADMIN:
+        return (True, None)
+    
+    # Logistics Officers and Managers have global visibility
+    if user.role in [ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER]:
+        return (True, None)
+    
+    # Hub-based users: check if they own this needs list
+    if user.assigned_location_id:
+        user_depot = Depot.query.get(user.assigned_location_id)
+        if user_depot and user_depot.id == needs_list.agency_hub_id:
+            return (True, None)
+    
+    return (False, "You don't have permission to view this needs list.")
+
+def can_edit_needs_list(user, needs_list):
+    """
+    Check if user can edit a needs list (only Draft status, only owning hub).
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Only draft needs lists can be edited
+    if needs_list.status != 'Draft':
+        return (False, "Only draft needs lists can be edited.")
+    
+    # ADMIN can edit
+    if user.role == ROLE_ADMIN:
+        return (True, None)
+    
+    # Only the owning hub can edit their draft
+    if user.assigned_location_id:
+        user_depot = Depot.query.get(user.assigned_location_id)
+        if user_depot and user_depot.id == needs_list.agency_hub_id:
+            return (True, None)
+    
+    return (False, "Only the owning hub can edit this needs list.")
+
+def can_submit_needs_list(user, needs_list):
+    """
+    Check if user can submit a draft needs list for logistics review.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Must be in Draft status
+    if needs_list.status != 'Draft':
+        return (False, "Only draft needs lists can be submitted.")
+    
+    # ADMIN can submit
+    if user.role == ROLE_ADMIN:
+        return (True, None)
+    
+    # Only SUB/AGENCY hub users from the owning hub can submit
+    if not user.assigned_location_id:
+        return (False, "You must be assigned to a hub to submit needs lists.")
+    
+    user_depot = Depot.query.get(user.assigned_location_id)
+    if not user_depot:
+        return (False, "Invalid hub assignment.")
+    
+    if user_depot.hub_type not in ['AGENCY', 'SUB']:
+        return (False, "Only AGENCY and SUB hubs can submit needs lists.")
+    
+    if user_depot.id != needs_list.agency_hub_id:
+        return (False, "Only the owning hub can submit this needs list.")
+    
+    return (True, None)
+
+def can_prepare_fulfilment(user, needs_list):
+    """
+    Check if user can prepare/edit fulfilment allocations.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Must be in correct status
+    if needs_list.status not in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval']:
+        return (False, "Only submitted or prepared needs lists can be edited.")
+    
+    # Only ADMIN, Logistics Officers, and Logistics Managers can prepare
+    if user.role not in [ROLE_ADMIN, ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER]:
+        return (False, "Only logistics staff can prepare fulfilments.")
+    
+    return (True, None)
+
+def can_approve_fulfilment(user, needs_list):
+    """
+    Check if user can approve and execute a fulfilment.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Must be in correct status
+    if needs_list.status not in ['Awaiting Approval', 'Fulfilment Prepared']:
+        return (False, "Only needs lists awaiting approval can be approved.")
+    
+    # Only ADMIN and Logistics Managers can approve
+    if user.role not in [ROLE_ADMIN, ROLE_LOGISTICS_MANAGER]:
+        return (False, "Only Logistics Managers can approve fulfilments.")
+    
+    return (True, None)
+
+def can_reject_fulfilment(user, needs_list):
+    """
+    Check if user can reject a fulfilment.
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Must be in correct status
+    if needs_list.status not in ['Awaiting Approval', 'Fulfilment Prepared']:
+        return (False, "Only needs lists awaiting approval can be rejected.")
+    
+    # Only ADMIN and Logistics Managers can reject
+    if user.role not in [ROLE_ADMIN, ROLE_LOGISTICS_MANAGER]:
+        return (False, "Only Logistics Managers can reject fulfilments.")
+    
+    return (True, None)
+
+def can_delete_needs_list(user, needs_list):
+    """
+    Check if user can delete a needs list (only Draft, only owning hub).
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Only draft needs lists can be deleted
+    if needs_list.status != 'Draft':
+        return (False, "Only draft needs lists can be deleted.")
+    
+    # ADMIN can delete
+    if user.role == ROLE_ADMIN:
+        return (True, None)
+    
+    # Only the owning hub can delete their draft
+    if not user.assigned_location_id:
+        return (False, "You must be assigned to a hub.")
+    
+    user_depot = Depot.query.get(user.assigned_location_id)
+    if not user_depot:
+        return (False, "Invalid hub assignment.")
+    
+    if user_depot.id != needs_list.agency_hub_id:
+        return (False, "Only the owning hub can delete this needs list.")
+    
+    return (True, None)
+
 def check_stock_availability(items_requested):
     """
     Check stock availability for requested items and calculate allocated quantities.
@@ -1799,33 +1957,25 @@ def needs_list_details(list_id):
     """View needs list details"""
     needs_list = NeedsList.query.get_or_404(list_id)
     
-    # Permission check
+    # Permission check using centralized helper
+    allowed, error_msg = can_view_needs_list(current_user, needs_list)
+    if not allowed:
+        flash(error_msg, "danger")
+        return redirect(url_for("dashboard"))
+    
+    # Get user depot if assigned
     user_depot = None
     if current_user.assigned_location_id:
         user_depot = Depot.query.get(current_user.assigned_location_id)
-    
-    # Allow access if: user is from agency that owns it, from MAIN hub it's submitted to, or is admin
-    can_access = False
-    if current_user.role == ROLE_ADMIN:
-        can_access = True
-    elif user_depot:
-        if user_depot.id == needs_list.agency_hub_id:
-            can_access = True
-        elif user_depot.id == needs_list.main_hub_id and needs_list.status != 'Draft':
-            can_access = True
-    
-    if not can_access:
-        flash("You don't have permission to view this needs list.", "danger")
-        return redirect(url_for("dashboard"))
     
     # Get MAIN hubs for submission (if draft and owned by agency/sub hub)
     main_hubs = []
     if user_depot and user_depot.hub_type in ['AGENCY', 'SUB'] and needs_list.status == 'Draft' and user_depot.id == needs_list.agency_hub_id:
         main_hubs = Depot.query.filter_by(hub_type='MAIN').order_by(Depot.name).all()
     
-    # Get stock availability for MAIN hub users
+    # Get stock availability for logistics staff
     stock_map = {}
-    if user_depot and user_depot.hub_type == 'MAIN':
+    if current_user.role in [ROLE_ADMIN, ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER]:
         stock_map = get_stock_by_location()
     
     return render_template("needs_list_details.html", needs_list=needs_list, user_depot=user_depot, stock_map=stock_map, main_hubs=main_hubs)
@@ -1836,18 +1986,10 @@ def needs_list_submit(list_id):
     """Submit needs list for logistics review - AGENCY and SUB hubs only"""
     needs_list = NeedsList.query.get_or_404(list_id)
     
-    # Verify user is from the agency/sub hub that owns this list
-    if not current_user.assigned_location_id:
-        flash("You must be assigned to an AGENCY or SUB hub.", "danger")
-        return redirect(url_for("needs_list_details", list_id=list_id))
-    
-    user_depot = Depot.query.get(current_user.assigned_location_id)
-    if not user_depot or user_depot.hub_type not in ['AGENCY', 'SUB'] or user_depot.id != needs_list.agency_hub_id:
-        flash("Only the owning AGENCY or SUB hub can submit this needs list.", "danger")
-        return redirect(url_for("needs_list_details", list_id=list_id))
-    
-    if needs_list.status != 'Draft':
-        flash("Only draft needs lists can be submitted.", "warning")
+    # Permission check using centralized helper
+    allowed, error_msg = can_submit_needs_list(current_user, needs_list)
+    if not allowed:
+        flash(error_msg, "danger")
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     # Submit for logistics review
@@ -1864,8 +2006,10 @@ def needs_list_prepare(list_id):
     """Prepare/edit fulfilment for a needs list - Logistics Officers and Managers"""
     needs_list = NeedsList.query.get_or_404(list_id)
     
-    if needs_list.status not in ['Submitted', 'Fulfilment Prepared', 'Awaiting Approval']:
-        flash("Only submitted or prepared needs lists can be edited.", "warning")
+    # Permission check using centralized helper
+    allowed, error_msg = can_prepare_fulfilment(current_user, needs_list)
+    if not allowed:
+        flash(error_msg, "warning")
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     if request.method == "POST":
@@ -2003,8 +2147,10 @@ def needs_list_approve(list_id):
     """Approve fulfilment and execute stock transfers - Logistics Managers only"""
     needs_list = NeedsList.query.get_or_404(list_id)
     
-    if needs_list.status not in ['Awaiting Approval', 'Fulfilment Prepared']:
-        flash("Only needs lists awaiting approval can be approved.", "warning")
+    # Permission check using centralized helper
+    allowed, error_msg = can_approve_fulfilment(current_user, needs_list)
+    if not allowed:
+        flash(error_msg, "warning")
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     approval_notes = request.form.get("approval_notes", "").strip() or None
@@ -2073,8 +2219,10 @@ def needs_list_reject(list_id):
     """Reject fulfilment - Logistics Managers only"""
     needs_list = NeedsList.query.get_or_404(list_id)
     
-    if needs_list.status not in ['Awaiting Approval', 'Fulfilment Prepared']:
-        flash("Only needs lists awaiting approval can be rejected.", "warning")
+    # Permission check using centralized helper
+    allowed, error_msg = can_reject_fulfilment(current_user, needs_list)
+    if not allowed:
+        flash(error_msg, "warning")
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     approval_notes = request.form.get("approval_notes", "").strip() or None
@@ -2100,19 +2248,11 @@ def needs_list_delete(list_id):
     """Delete a draft needs list - AGENCY hubs only"""
     needs_list = NeedsList.query.get_or_404(list_id)
     
-    # Verify user is from the agency hub that owns this list
-    if not current_user.assigned_location_id:
-        flash("You must be assigned to an AGENCY hub.", "danger")
+    # Permission check using centralized helper
+    allowed, error_msg = can_delete_needs_list(current_user, needs_list)
+    if not allowed:
+        flash(error_msg, "danger")
         return redirect(url_for("needs_lists"))
-    
-    user_depot = Depot.query.get(current_user.assigned_location_id)
-    if not user_depot or user_depot.hub_type != 'AGENCY' or user_depot.id != needs_list.agency_hub_id:
-        flash("Only the owning AGENCY hub can delete this needs list.", "danger")
-        return redirect(url_for("needs_lists"))
-    
-    if needs_list.status != 'Draft':
-        flash("Only draft needs lists can be deleted.", "warning")
-        return redirect(url_for("needs_list_details", list_id=list_id))
     
     list_number = needs_list.list_number
     db.session.delete(needs_list)
