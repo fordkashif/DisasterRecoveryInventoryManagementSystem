@@ -128,6 +128,31 @@ class User(UserMixin, db.Model):
         """Required by Flask-Login"""
         return str(self.id)
 
+class Notification(db.Model):
+    """In-app notifications for Agency Hub users to track workflow updates"""
+    __tablename__ = 'notification'
+    __table_args__ = (
+        db.Index('idx_notification_user_status_created', 'user_id', 'status', 'created_at'),
+        db.Index('idx_notification_hub_created', 'hub_id', 'created_at'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    hub_id = db.Column(db.Integer, db.ForeignKey('location.id'), nullable=True, index=True)
+    needs_list_id = db.Column(db.Integer, db.ForeignKey('needs_list.id'), nullable=True, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # submitted, approved, dispatched, received, comment
+    status = db.Column(db.String(20), default='unread', nullable=False)  # unread, read, archived
+    link_url = db.Column(db.String(500), nullable=True)  # URL to navigate to related resource
+    payload = db.Column(db.Text, nullable=True)  # JSON payload for extensibility (e.g., triggered_by info)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    user = db.relationship('User', backref='notifications')
+    hub = db.relationship('Depot')
+    needs_list = db.relationship('NeedsList')
+
 class DistributionPackage(db.Model):
     """Distribution packages for relief operations delivered to AGENCY hubs"""
     id = db.Column(db.Integer, primary_key=True)
@@ -2061,6 +2086,15 @@ def needs_list_submit(list_id):
     needs_list.submitted_at = datetime.utcnow()
     db.session.commit()
     
+    # Create notification for agency hub users
+    create_notification_for_agency_hub(
+        needs_list=needs_list,
+        title="Needs List Submitted",
+        message=f"Your needs list {needs_list.list_number} has been submitted for ODPEM review.",
+        notification_type="submitted",
+        triggered_by_user=current_user
+    )
+    
     flash(f"Needs list {needs_list.list_number} submitted successfully for logistics review.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
@@ -2203,6 +2237,15 @@ def needs_list_approve(list_id):
     needs_list.approval_notes = approval_notes
     db.session.commit()
     
+    # Create notification for agency hub users
+    create_notification_for_agency_hub(
+        needs_list=needs_list,
+        title="Needs List Approved",
+        message=f"Your needs list {needs_list.list_number} has been approved by {current_user.full_name} and is ready for dispatch.",
+        notification_type="approved",
+        triggered_by_user=current_user
+    )
+    
     flash(f"Needs list {needs_list.list_number} approved successfully. Ready for dispatch.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
@@ -2328,6 +2371,15 @@ def needs_list_dispatch(list_id):
     
     db.session.commit()
     
+    # Create notification for agency hub users
+    create_notification_for_agency_hub(
+        needs_list=needs_list,
+        title="Items Dispatched",
+        message=f"Items for needs list {needs_list.list_number} have been dispatched by {current_user.full_name}. Please confirm receipt when items arrive.",
+        notification_type="dispatched",
+        triggered_by_user=current_user
+    )
+    
     flash(f"Needs list {needs_list.list_number} dispatched successfully. Stock transfers completed and {requesting_hub.name} will be notified.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
@@ -2353,6 +2405,15 @@ def needs_list_confirm_receipt(list_id):
     needs_list.fulfilled_at = datetime.utcnow()  # Mark as fully fulfilled
     
     db.session.commit()
+    
+    # Create notification for agency hub users
+    create_notification_for_agency_hub(
+        needs_list=needs_list,
+        title="Receipt Confirmed",
+        message=f"Receipt has been confirmed for needs list {needs_list.list_number} by {current_user.full_name}. Request is now completed.",
+        notification_type="received",
+        triggered_by_user=current_user
+    )
     
     flash(f"Receipt confirmed for needs list {needs_list.list_number}. Request is now completed.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
@@ -3047,6 +3108,124 @@ def migrate_dispatch_receipt():
     except Exception as e:
         print(f"✗ Migration failed: {str(e)}")
         print("  Note: If columns already exist, you can ignore this error.")
+
+@app.cli.command("create-notification-table")
+def create_notification_table():
+    """Create the notification table for in-app notifications"""
+    from sqlalchemy import text
+    
+    print("\n=== Creating Notification Table ===\n")
+    
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS notification (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES "user"(id),
+                    hub_id INTEGER REFERENCES location(id),
+                    needs_list_id INTEGER REFERENCES needs_list(id),
+                    title VARCHAR(200) NOT NULL,
+                    message TEXT NOT NULL,
+                    type VARCHAR(50) NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'unread',
+                    link_url VARCHAR(500),
+                    payload TEXT,
+                    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_user_id ON notification(user_id)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_hub_id ON notification(hub_id)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_needs_list_id ON notification(needs_list_id)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_created_at ON notification(created_at)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_is_archived ON notification(is_archived)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_user_status_created ON notification(user_id, status, created_at)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notification_hub_created ON notification(hub_id, created_at)
+            """))
+            
+            conn.commit()
+        
+        print("✓ Notification table created successfully!")
+        print("  Indexes:")
+        print("    - idx_notification_user_status_created (user_id, status, created_at)")
+        print("    - idx_notification_hub_created (hub_id, created_at)")
+        print("\n")
+        
+    except Exception as e:
+        print(f"✗ Migration failed: {str(e)}")
+
+# ---------- Notification Service ----------
+def create_notification_for_agency_hub(needs_list, title, message, notification_type, triggered_by_user=None):
+    """
+    Create notifications for all active users assigned to an agency hub.
+    
+    Args:
+        needs_list: NeedsList object
+        title: Notification title (e.g., "Needs List Approved")
+        message: Notification message (e.g., "Your Needs List NL-000004 has been approved")
+        notification_type: Type of notification (submitted, approved, dispatched, received, comment)
+        triggered_by_user: User who triggered the notification (for audit trail)
+    """
+    try:
+        import json
+        
+        # Get all active users assigned to the agency hub
+        agency_users = User.query.filter(
+            User.assigned_location_id == needs_list.agency_hub_id,
+            User.is_active == True
+        ).all()
+        
+        if not agency_users:
+            print(f"Warning: No active users found for agency hub {needs_list.agency_hub_id}")
+            return
+        
+        # Build link URL to the needs list detail page
+        link_url = f"/needs-lists/{needs_list.id}"
+        
+        # Build payload for audit trail
+        payload_data = {
+            "needs_list_number": needs_list.list_number,
+            "triggered_by": triggered_by_user.full_name if triggered_by_user else "System",
+            "triggered_by_id": triggered_by_user.id if triggered_by_user else None,
+        }
+        payload_json = json.dumps(payload_data)
+        
+        # Create notification for each agency user
+        for user in agency_users:
+            notification = Notification(
+                user_id=user.id,
+                hub_id=needs_list.agency_hub_id,
+                needs_list_id=needs_list.id,
+                title=title,
+                message=message,
+                type=notification_type,
+                status='unread',
+                link_url=link_url,
+                payload=payload_json,
+                is_archived=False
+            )
+            db.session.add(notification)
+        
+        db.session.commit()
+        print(f"Created {len(agency_users)} notifications for {notification_type} event on {needs_list.list_number}")
+        
+    except Exception as e:
+        print(f"Error creating notifications: {str(e)}")
+        db.session.rollback()
 
 @app.route("/uploads/<path:file_path>")
 @login_required

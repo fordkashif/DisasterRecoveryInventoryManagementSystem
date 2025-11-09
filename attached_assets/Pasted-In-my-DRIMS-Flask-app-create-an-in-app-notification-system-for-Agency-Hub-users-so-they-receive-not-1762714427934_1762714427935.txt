@@ -1,0 +1,63 @@
+In my DRIMS Flask app, create an in-app notification system for Agency Hub users so they receive notifications for every key update in their workflow.
+
+Features & Behavior
+
+Add a Notifications menu option (bell icon) to the Agency Hub’s left-side navigation bar.
+
+When clicked, it opens a clean notification panel listing recent updates, sorted by most recent first.
+
+Each notification should display:
+
+Title: short summary (e.g., “Needs List Approved,” “Items Dispatched,” “Items Received Confirmation”).
+
+Description: one-line detail (e.g., “Your Needs List NL-000004 has been approved by the Logistics Manager”).
+
+Timestamp: date/time of event.
+
+Optional icon or color tag by type (✔️ approvals, 📦 dispatch, 📥 receipt).
+
+Trigger Events
+
+Create backend events to push notifications for:
+
+Needs List Submitted → Awaiting Review
+
+Needs List Approved (Logistics Manager approval)
+
+Items Dispatched (Logistics Officer or Manager dispatch)
+
+Receipt Confirmed (when Agency confirms receipt)
+
+(Optional) Message / Comment Added on their Needs List
+
+Technical Implementation
+
+Add a new Notification model with fields:
+
+id, user_id, hub_id, title, message, type, status (unread/read), timestamp.
+
+Each relevant route (approval, dispatch, receipt confirmation) should create a new notification entry for affected Agency Hub users.
+
+On the frontend:
+
+Show a small notification badge counter on the bell icon for unread messages.
+
+Support marking notifications as read when opened or viewed.
+
+Auto-refresh the list (or poll via AJAX/WebSocket) every few seconds for live updates.
+
+UI / UX Guidelines
+
+Use Bootstrap 5 dropdown or offcanvas panel for the notification list.
+
+Keep layout minimal, readable, and mobile-friendly.
+
+Include color accents or icons per notification type for quick scanning.
+
+Provide a “View All Notifications” link to open a full history page.
+
+Outcome
+
+Agency Hub users get real-time, easy-to-read notifications for every workflow update.
+
+The Logistics workflow remains unchanged, but Agency users are always informed of approvals, dispatches, and receipts directly inside the app.
