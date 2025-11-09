@@ -3175,17 +3175,10 @@ def create_notification_table():
 
 # ---------- Notification API Routes ----------
 
-@app.route("/agency/notifications/unread-count")
+@app.route("/notifications/unread-count")
 @login_required
-def agency_notifications_unread_count():
-    """Get unread notification count for the current user (Agency hub users)"""
-    # Verify user is assigned to an Agency hub
-    if not current_user.assigned_location:
-        return jsonify({"count": 0})
-    
-    if current_user.assigned_location.hub_type != 'AGENCY':
-        return jsonify({"count": 0})
-    
+def notifications_unread_count():
+    """Get unread notification count for the current user"""
     count = Notification.query.filter(
         Notification.user_id == current_user.id,
         Notification.status == 'unread',
@@ -3194,14 +3187,17 @@ def agency_notifications_unread_count():
     
     return jsonify({"count": count})
 
-@app.route("/agency/notifications/list")
+# Keep old route for backward compatibility
+@app.route("/agency/notifications/unread-count")
 @login_required
-def agency_notifications_list():
-    """Get paginated list of notifications for the current user (Agency hub users)"""
-    # Verify user is assigned to an Agency hub
-    if not current_user.assigned_location or current_user.assigned_location.hub_type != 'AGENCY':
-        return jsonify({"notifications": [], "total": 0, "has_more": False})
-    
+def agency_notifications_unread_count():
+    """Deprecated: Use /notifications/unread-count instead"""
+    return notifications_unread_count()
+
+@app.route("/notifications/list")
+@login_required
+def notifications_list():
+    """Get paginated list of notifications for the current user"""
     # Pagination parameters
     page = request.args.get('page', 1, type=int)
     limit = min(request.args.get('limit', 20, type=int), 50)  # Max 50 per page
@@ -3238,9 +3234,16 @@ def agency_notifications_list():
         "has_more": total > (page * limit)
     })
 
-@app.route("/agency/notifications/<int:notification_id>/mark-read", methods=["POST"])
+# Keep old route for backward compatibility
+@app.route("/agency/notifications/list")
 @login_required
-def agency_notification_mark_read(notification_id):
+def agency_notifications_list():
+    """Deprecated: Use /notifications/list instead"""
+    return notifications_list()
+
+@app.route("/notifications/<int:notification_id>/mark-read", methods=["POST"])
+@login_required
+def notification_mark_read(notification_id):
     """Mark a single notification as read"""
     notification = Notification.query.get_or_404(notification_id)
     
@@ -3253,13 +3256,17 @@ def agency_notification_mark_read(notification_id):
     
     return jsonify({"success": True, "id": notification_id})
 
-@app.route("/agency/notifications/mark-all-read", methods=["POST"])
+# Keep old route for backward compatibility
+@app.route("/agency/notifications/<int:notification_id>/mark-read", methods=["POST"])
 @login_required
-def agency_notifications_mark_all_read():
+def agency_notification_mark_read(notification_id):
+    """Deprecated: Use /notifications/<id>/mark-read instead"""
+    return notification_mark_read(notification_id)
+
+@app.route("/notifications/mark-all-read", methods=["POST"])
+@login_required
+def notifications_mark_all_read():
     """Mark all unread notifications as read for the current user"""
-    if not current_user.assigned_location or current_user.assigned_location.hub_type != 'AGENCY':
-        return jsonify({"error": "Unauthorized"}), 403
-    
     count = Notification.query.filter(
         Notification.user_id == current_user.id,
         Notification.status == 'unread',
@@ -3270,15 +3277,17 @@ def agency_notifications_mark_all_read():
     
     return jsonify({"success": True, "marked_count": count})
 
-@app.route("/agency/notifications/history")
+# Keep old route for backward compatibility
+@app.route("/agency/notifications/mark-all-read", methods=["POST"])
 @login_required
-def agency_notifications_history():
-    """Full notification history page for Agency hub users"""
-    # Verify user is assigned to an Agency hub
-    if not current_user.assigned_location or current_user.assigned_location.hub_type != 'AGENCY':
-        flash("This page is only available for Agency hub users.", "warning")
-        return redirect(url_for("needs_lists"))
-    
+def agency_notifications_mark_all_read():
+    """Deprecated: Use /notifications/mark-all-read instead"""
+    return notifications_mark_all_read()
+
+@app.route("/notifications/history")
+@login_required
+def notifications_history():
+    """Full notification history page for all users"""
     # Get all notifications (including archived) for this user
     notifications = Notification.query.filter(
         Notification.user_id == current_user.id
@@ -3286,7 +3295,103 @@ def agency_notifications_history():
     
     return render_template("notifications_history.html", notifications=notifications)
 
+# Keep old route for backward compatibility
+@app.route("/agency/notifications/history")
+@login_required
+def agency_notifications_history():
+    """Deprecated: Use /notifications/history instead"""
+    return notifications_history()
+
 # ---------- Notification Service ----------
+
+def create_notifications_for_users(user_ids, title, message, notification_type, link_url=None, payload_data=None, needs_list_id=None, hub_id=None):
+    """
+    Create notifications for specific users.
+    
+    Args:
+        user_ids: List of user IDs to notify
+        title: Notification title
+        message: Notification message
+        notification_type: Type of notification (submitted, approved, dispatched, received, etc.)
+        link_url: Optional URL to link to
+        payload_data: Optional dict of additional data for audit trail
+        needs_list_id: Optional needs list ID
+        hub_id: Optional hub ID
+    """
+    try:
+        import json
+        
+        if not user_ids:
+            print(f"Warning: No users specified for notification")
+            return
+        
+        # Build payload JSON
+        payload_json = json.dumps(payload_data) if payload_data else None
+        
+        # Create notification for each user
+        for user_id in user_ids:
+            notification = Notification(
+                user_id=user_id,
+                hub_id=hub_id,
+                needs_list_id=needs_list_id,
+                title=title,
+                message=message,
+                type=notification_type,
+                status='unread',
+                link_url=link_url,
+                payload=payload_json,
+                is_archived=False
+            )
+            db.session.add(notification)
+        
+        db.session.commit()
+        print(f"Created {len(user_ids)} notifications for {notification_type} event")
+        
+    except Exception as e:
+        print(f"Error creating notifications: {str(e)}")
+        db.session.rollback()
+
+def create_notifications_for_role(role, title, message, notification_type, link_url=None, payload_data=None, needs_list_id=None, hub_id=None):
+    """
+    Create notifications for all active users with a specific role.
+    
+    Args:
+        role: User role to notify (e.g., ROLE_LOGISTICS_MANAGER)
+        title: Notification title
+        message: Notification message
+        notification_type: Type of notification
+        link_url: Optional URL to link to
+        payload_data: Optional dict of additional data for audit trail
+        needs_list_id: Optional needs list ID
+        hub_id: Optional hub ID
+    """
+    try:
+        # Get all active users with this role
+        users = User.query.filter(
+            User.role == role,
+            User.is_active == True
+        ).all()
+        
+        user_ids = [user.id for user in users]
+        
+        if not user_ids:
+            print(f"Warning: No active users found with role {role}")
+            return
+        
+        create_notifications_for_users(
+            user_ids=user_ids,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            link_url=link_url,
+            payload_data=payload_data,
+            needs_list_id=needs_list_id,
+            hub_id=hub_id
+        )
+        
+    except Exception as e:
+        print(f"Error creating role notifications: {str(e)}")
+
 def create_notification_for_agency_hub(needs_list, title, message, notification_type, triggered_by_user=None):
     """
     Create notifications for all active users assigned to an agency hub.
