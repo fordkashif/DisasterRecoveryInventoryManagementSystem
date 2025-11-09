@@ -383,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Hubs by Type Chart
   const hubsCtx = document.getElementById('hubsChart');
   if (hubsCtx) {
-    const hubTypes = {{ hubs_by_type|tojson }};
+    const hubTypes = {{ hubs_by_type|tojson|safe }};
     new Chart(hubsCtx, {
       type: 'doughnut',
       data: {
@@ -410,8 +410,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Stock by Category Chart
   const stockCtx = document.getElementById('stockChart');
   if (stockCtx) {
-    const categories = {{ category_labels|tojson }};
-    const categoryData = {{ category_data|tojson }};
+    const categories = {{ category_labels|tojson|safe }};
+    const categoryData = {{ category_data|tojson|safe }};
     new Chart(stockCtx, {
       type: 'bar',
       data: {
@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Needs Lists Status Chart
   const needsListsCtx = document.getElementById('needsListsChart');
   if (needsListsCtx) {
-    const needsListsData = {{ needs_lists_chart_data|tojson }};
+    const needsListsData = {{ needs_lists_chart_data|tojson|safe }};
     new Chart(needsListsCtx, {
       type: 'doughnut',
       data: {
