@@ -40,7 +40,24 @@ The system features role-based governance, a transfer approval workflow based on
 Enables stock transfers between depots with hub-based approval rules. MAIN hub users' transfers execute immediately, while SUB/AGENCY hub users' transfers create a TransferRequest for MAIN hub approval. An approval queue allows MAIN hub staff to review, approve, or reject requests, with real-time validation and a full audit trail.
 
 ### Dashboard Features
-Provides a comprehensive overview with KPIs, inventory by category, stock by location, low stock alerts, recent transactions, expiring item alerts, activity by disaster event, and transaction analytics.
+Implements a best-practice layout with responsive design and data visualizations:
+
+**Layout Structure:**
+-   **Hero Cards (Top Row)**: Four key metrics cards - Total Hubs, Units in Stock, Active Needs Lists, and Low Stock Alerts with icon boxes and hover effects
+-   **Insight Panels (Middle Section)**: Two side-by-side visualization panels:
+    -   Stock Distribution Chart: Doughnut chart showing inventory breakdown by category with color-coded segments
+    -   Fulfillment Trends Chart: Bar chart displaying needs list completions over the last 7 days
+-   **Activity Feed (Lower Section)**: Full-width scrollable feed of recent transactions with IN/OUT badges, item details, location, and timestamps
+-   **Sidebar (Right Panel)**: Role-aware quick actions, hub status overview, pending approvals summary, and needs list status breakdown
+
+**Technical Implementation:**
+-   Chart.js 4.4.0 integration for interactive data visualizations
+-   Server-side data aggregation for chart datasets (category_labels, category_data, fulfillment_labels, fulfillment_data)
+-   Responsive Bootstrap 5 grid with 24-32px gutters for optimal spacing
+-   Mobile-friendly design with adaptive layouts for different screen sizes
+-   Custom CSS for hero card hover effects, activity item interactions, and icon boxes
+-   Role-based content display (Quick Actions visible to ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER, WAREHOUSE_STAFF)
+-   Real-time KPIs exclude AGENCY hub inventory to maintain separation from ODPEM operations
 
 ### Authentication and User Management
 Implements Flask-Login with role-based access control (RBAC) for seven user roles: ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER, WAREHOUSE_STAFF, FIELD_PERSONNEL, EXECUTIVE, and AUDITOR. Features include secure password hashing, session management, role-aware navigation, and route protection. An ADMIN-only web interface manages user accounts. AGENCY hub users have a simplified navigation menu focused on Needs Lists and History.
@@ -90,3 +107,4 @@ Utilizes Flask's built-in session handling with a secret key from environment va
 ### Frontend Dependencies (CDN-delivered)
 -   **Bootstrap**: 5.3.3
 -   **Bootstrap Icons**: 1.11.3
+-   **Chart.js**: 4.4.0 (for dashboard data visualizations)
