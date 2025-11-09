@@ -140,7 +140,6 @@
                   <th>Requesting Hub</th>
                   <th>Status</th>
                   <th>Approved</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,11 +149,6 @@
                   <td>{{ needs_list.agency_hub.name }}</td>
                   <td><span class="badge bg-success">{{ needs_list.status }}</span></td>
                   <td>{{ needs_list.approved_at.strftime('%Y-%m-%d %H:%M') if needs_list.approved_at else '-' }}</td>
-                  <td>
-                    <a href="{{ url_for('needs_list_details', list_id=needs_list.id) }}" class="btn btn-sm btn-outline-primary">
-                      <i class="bi bi-eye me-1"></i>View
-                    </a>
-                  </td>
                 </tr>
                 {% endfor %}
               </tbody>
