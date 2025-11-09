@@ -717,6 +717,7 @@ def dashboard():
 def items():
     q = request.args.get("q", "").strip()
     cat = request.args.get("category", "").strip()
+    hub_filter = request.args.get("hub", "").strip()
     
     # Get all items
     query = Item.query
@@ -730,11 +731,26 @@ def items():
     
     # Get stock by location for all items
     stock_map = get_stock_by_location()
+    
     # Exclude AGENCY hubs from overall inventory displays
-    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
+    locations_query = Depot.query.filter(Depot.hub_type != 'AGENCY')
+    
+    # Apply hub filter if specified (for Logistics Manager/Officer)
+    if hub_filter:
+        try:
+            hub_id = int(hub_filter)
+            locations_query = locations_query.filter(Depot.id == hub_id)
+        except ValueError:
+            pass
+    
+    locations = locations_query.order_by(Depot.name.asc()).all()
+    
+    # Get all ODPEM hubs for filter dropdown
+    all_hubs = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
     
     return render_template("items.html", items=all_items, q=q, cat=cat, 
-                          locations=locations, stock_map=stock_map)
+                          locations=locations, stock_map=stock_map, 
+                          all_hubs=all_hubs, hub_filter=hub_filter)
 
 @app.route("/items/new", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_WAREHOUSE_STAFF)
