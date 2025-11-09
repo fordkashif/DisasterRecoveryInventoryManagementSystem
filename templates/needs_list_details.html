@@ -52,58 +52,167 @@
     <div class="col-lg-9">
       <!-- Summary Panel -->
       <div class="row g-3 mb-3">
-        <div class="col-md-3">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center">
-                <i class="bi bi-box text-primary me-2" style="font-size: 1.5rem;"></i>
-                <div>
-                  <small class="text-muted d-block">Total Items</small>
-                  <strong>{{ needs_list.items|length }}</strong>
+        {% if needs_list.status in ['Dispatched', 'Received', 'Completed'] %}
+          {# EXECUTION PHASE: Show dispatch/delivery metrics #}
+          {% set dispatched_count = 0 %}
+          {% set full_delivery_count = 0 %}
+          {% set partial_count = 0 %}
+          {% set total_dispatched_qty = 0 %}
+          {% set total_requested_qty = 0 %}
+          {% for item_entry in needs_list.items %}
+            {% set item_dispatched = 0 %}
+            {% for fulfilment in needs_list.fulfilments %}
+              {% if fulfilment.item_sku == item_entry.item_sku %}
+                {% set item_dispatched = item_dispatched + fulfilment.allocated_qty %}
+              {% endif %}
+            {% endfor %}
+            {% set total_dispatched_qty = total_dispatched_qty + item_dispatched %}
+            {% set total_requested_qty = total_requested_qty + item_entry.requested_qty %}
+            {% if item_dispatched > 0 %}
+              {% set dispatched_count = dispatched_count + 1 %}
+            {% endif %}
+            {% if item_dispatched >= item_entry.requested_qty %}
+              {% set full_delivery_count = full_delivery_count + 1 %}
+            {% elif item_dispatched > 0 %}
+              {% set partial_count = partial_count + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-box-seam text-primary me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Total Dispatched</small>
+                    <strong class="{% if total_dispatched_qty >= total_requested_qty %}text-success{% elif total_dispatched_qty > 0 %}text-warning{% else %}text-danger{% endif %}">{{ total_dispatched_qty }}</strong>
+                    <small class="d-block text-muted">of {{ total_requested_qty }} units</small>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center">
-                <i class="bi bi-check-circle text-success me-2" style="font-size: 1.5rem;"></i>
-                <div>
-                  <small class="text-muted d-block">Fully Allocated</small>
-                  <strong id="summary-fully">0</strong>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-speedometer text-primary me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Fulfillment Rate</small>
+                    {% set fulfillment_rate = ((total_dispatched_qty / total_requested_qty * 100)|int) if total_requested_qty > 0 else 0 %}
+                    <strong class="{% if fulfillment_rate >= 100 %}text-success{% elif fulfillment_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">{{ fulfillment_rate }}%</strong>
+                    <small class="d-block text-muted">{{ needs_list.items|length }} items</small>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center">
-                <i class="bi bi-hourglass-split text-warning me-2" style="font-size: 1.5rem;"></i>
-                <div>
-                  <small class="text-muted d-block">Partial</small>
-                  <strong id="summary-partial">0</strong>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-exclamation-triangle text-warning me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Shortfall</small>
+                    {% set shortfall_qty = [total_requested_qty - total_dispatched_qty, 0]|max %}
+                    <strong class="{% if shortfall_qty == 0 %}text-success{% else %}text-warning{% endif %}">{{ shortfall_qty }}</strong>
+                    <small class="d-block text-muted">units outstanding</small>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center">
-                <i class="bi bi-exclamation-triangle text-danger me-2" style="font-size: 1.5rem;"></i>
-                <div>
-                  <small class="text-muted d-block">Unallocated</small>
-                  <strong id="summary-unallocated">{{ needs_list.items|length }}</strong>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex flex-column">
+                  <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-clock-history text-info me-2" style="font-size: 1.5rem;"></i>
+                    <small class="text-muted">Timeline</small>
+                  </div>
+                  {% if needs_list.dispatched_at %}
+                    <small class="d-flex align-items-start mb-1">
+                      <i class="bi bi-truck me-1 text-primary"></i>
+                      <div>
+                        <strong class="d-block">Dispatched</strong>
+                        <span class="text-muted">{{ needs_list.dispatched_at.strftime('%b %d, %H:%M') }}</span>
+                        {% if needs_list.dispatched_by_user %}
+                          <br><span class="text-muted small">by {{ needs_list.dispatched_by_user.full_name }}</span>
+                        {% endif %}
+                      </div>
+                    </small>
+                  {% endif %}
+                  {% if needs_list.received_at %}
+                    <small class="d-flex align-items-start">
+                      <i class="bi bi-check-circle me-1 text-success"></i>
+                      <div>
+                        <strong class="d-block">Received</strong>
+                        <span class="text-muted">{{ needs_list.received_at.strftime('%b %d, %H:%M') }}</span>
+                        {% if needs_list.received_by_user %}
+                          <br><span class="text-muted small">by {{ needs_list.received_by_user.full_name }}</span>
+                        {% endif %}
+                      </div>
+                    </small>
+                  {% endif %}
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        {% else %}
+          {# PLANNING PHASE: Show allocation metrics #}
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-box text-primary me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Total Items</small>
+                    <strong>{{ needs_list.items|length }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-check-circle text-success me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Fully Allocated</small>
+                    <strong id="summary-fully">0</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-hourglass-split text-warning me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Partial</small>
+                    <strong id="summary-partial">0</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-exclamation-triangle text-danger me-2" style="font-size: 1.5rem;"></i>
+                  <div>
+                    <small class="text-muted d-block">Unallocated</small>
+                    <strong id="summary-unallocated">{{ needs_list.items|length }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
       </div>
 
       <!-- Items Table -->
@@ -115,12 +224,22 @@
                 <tr>
                   <th style="width: 25%;">Item</th>
                   <th style="width: 10%;" class="text-center">Requested</th>
-                  {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
+                  {% if needs_list.status in ['Dispatched', 'Received', 'Completed'] %}
+                    {# Execution Phase: Show dispatch/delivery info #}
+                    <th style="width: 25%;">Dispatched From</th>
+                    <th style="width: 10%;" class="text-center">Dispatched</th>
+                    <th style="width: 10%;" class="text-center">Fulfillment</th>
+                    <th style="width: 20%;">Status</th>
+                  {% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}
+                    {# Planning Phase: Show allocation info #}
                     <th style="width: 30%;">Allocate from Hubs</th>
                     <th style="width: 10%;" class="text-center">Allocated</th>
                     <th style="width: 10%;" class="text-center">Remaining</th>
+                    <th style="width: 15%;">Status</th>
+                  {% else %}
+                    {# Draft/Submitted: Minimal view #}
+                    <th style="width: 35%;">Status</th>
                   {% endif %}
-                  <th style="width: 15%;">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,7 +269,47 @@
                       <strong class="text-primary">{{ item_entry.requested_qty }}</strong>
                       <small class="d-block text-muted">{{ item_entry.item.unit }}</small>
                     </td>
-                    {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
+                    {% if needs_list.status in ['Dispatched', 'Received', 'Completed'] %}
+                      {# EXECUTION PHASE: Show dispatch/delivery details #}
+                      <td>
+                        {% if item_fulfilments %}
+                          <div class="d-flex flex-column gap-1">
+                            {% for fulfilment in item_fulfilments %}
+                              <div class="d-flex justify-content-between align-items-center">
+                                <small><i class="bi bi-geo-alt me-1 text-primary"></i>{{ fulfilment.source_hub.name }}</small>
+                                <span class="badge bg-success">{{ fulfilment.allocated_qty }} {{ item_entry.item.unit }}</span>
+                              </div>
+                            {% endfor %}
+                          </div>
+                        {% else %}
+                          <small class="text-danger"><i class="bi bi-x-circle me-1"></i>Not dispatched</small>
+                        {% endif %}
+                      </td>
+                      <td class="text-center align-middle">
+                        <strong class="{% if total_allocated > item_entry.requested_qty %}text-danger{% else %}text-success{% endif %}">
+                          {{ total_allocated }}
+                        </strong>
+                        <small class="d-block text-muted">{{ item_entry.item.unit }}</small>
+                        {% if total_allocated > item_entry.requested_qty %}
+                          <span class="badge bg-danger mt-1">Over +{{ total_allocated - item_entry.requested_qty }}</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-center align-middle">
+                        {% set fulfillment_pct = (total_allocated / item_entry.requested_qty * 100)|int if item_entry.requested_qty > 0 else 0 %}
+                        <strong>{{ total_allocated }}/{{ item_entry.requested_qty }}</strong>
+                        <div class="progress mt-1" style="height: 6px;">
+                          <div class="progress-bar {% if fulfillment_pct >= 100 %}bg-success{% elif fulfillment_pct > 0 %}bg-warning{% else %}bg-danger{% endif %}" 
+                               style="width: {{ [fulfillment_pct, 100]|min }}%;"></div>
+                        </div>
+                        <small class="d-block text-center mt-1 {% if fulfillment_pct >= 100 %}text-success{% elif fulfillment_pct > 0 %}text-warning{% else %}text-danger{% endif %}">
+                          {{ fulfillment_pct }}%
+                        </small>
+                        {% if total_allocated < item_entry.requested_qty and total_allocated > 0 %}
+                          <small class="text-muted">Shortfall: {{ item_entry.requested_qty - total_allocated }}</small>
+                        {% endif %}
+                      </td>
+                    {% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}
+                      {# PLANNING PHASE: Show allocation details #}
                       <td>
                         {% if item_fulfilments %}
                           <div class="d-flex flex-column gap-1">
@@ -174,7 +333,33 @@
                     {% endif %}
                     <td class="align-middle">
                       <div class="status-cell">
-                        {% if needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved', 'Dispatched', 'Received', 'Completed'] %}
+                        {% if needs_list.status in ['Dispatched', 'Received', 'Completed'] %}
+                          {# EXECUTION PHASE: Show dispatch/delivery status #}
+                          {% if total_allocated == 0 %}
+                            <span class="badge bg-danger w-100 mb-1">Not Dispatched</span>
+                          {% elif total_allocated >= item_entry.requested_qty %}
+                            <span class="badge bg-success w-100 mb-1">
+                              {% if needs_list.status == 'Dispatched' %}In Transit{% elif needs_list.status == 'Received' %}Received{% else %}Completed{% endif %}
+                            </span>
+                          {% else %}
+                            <span class="badge bg-warning text-dark w-100 mb-1">Partial Delivery</span>
+                          {% endif %}
+                          {% if loop.first %}
+                            {% if needs_list.dispatched_at %}
+                              <small class="d-block text-muted mt-1">
+                                <i class="bi bi-truck me-1"></i>{{ needs_list.dispatched_at.strftime('%b %d, %H:%M') }}
+                                {% if needs_list.dispatched_by_user %}<br>by {{ needs_list.dispatched_by_user.full_name }}{% endif %}
+                              </small>
+                            {% endif %}
+                            {% if needs_list.status in ['Received', 'Completed'] and needs_list.received_at %}
+                              <small class="d-block text-success mt-1">
+                                <i class="bi bi-check-circle me-1"></i>{{ needs_list.received_at.strftime('%b %d, %H:%M') }}
+                                {% if needs_list.received_by_user %}<br>by {{ needs_list.received_by_user.full_name }}{% endif %}
+                              </small>
+                            {% endif %}
+                          {% endif %}
+                        {% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}
+                          {# PLANNING PHASE: Show allocation status #}
                           {% if total_allocated == 0 %}
                             <span class="badge bg-secondary w-100 mb-1">Unallocated</span>
                             <div class="progress" style="height: 4px;">
@@ -195,7 +380,8 @@
                             <small class="d-block text-center text-success mt-1">100%</small>
                           {% endif %}
                         {% else %}
-                          <span class="badge bg-secondary">Pending</span>
+                          {# EARLY PHASE: Draft/Submitted #}
+                          <span class="badge bg-secondary">Pending Review</span>
                         {% endif %}
                       </div>
                     </td>
