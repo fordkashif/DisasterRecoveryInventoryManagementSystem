@@ -129,6 +129,8 @@
                           <span class="badge bg-warning text-dark">Awaiting Approval</span>
                         {% elif needs_list.status == 'Approved' %}
                           <span class="badge bg-success">Approved</span>
+                        {% elif needs_list.status == 'Resent for Dispatch' %}
+                          <span class="badge bg-success">Resent for Dispatch</span>
                         {% elif needs_list.status == 'Dispatched' %}
                           <span class="badge bg-info">Dispatched</span>
                         {% elif needs_list.status == 'Received' %}

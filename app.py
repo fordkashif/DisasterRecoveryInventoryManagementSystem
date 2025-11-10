@@ -2694,17 +2694,17 @@ def needs_lists():
             flash("Needs list access is only available for Sub-Hub assignments.", "danger")
             return redirect(url_for("warehouse_dashboard"))
         
-        # Show all needs lists (Approved, Dispatched, Received, Completed) where their Sub-Hub is the fulfilment/dispatch hub
+        # Show all needs lists (Approved, Resent for Dispatch, Dispatched, Received, Completed) where their Sub-Hub is the fulfilment/dispatch hub
         # This ensures warehouse supervisors only see lists assigned to their specific hub
         hub_needs_lists = db.session.query(NeedsList).join(
             NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
         ).filter(
-            NeedsList.status.in_(['Approved', 'Dispatched', 'Received', 'Completed']),
+            NeedsList.status.in_(['Approved', 'Resent for Dispatch', 'Dispatched', 'Received', 'Completed']),
             NeedsListFulfilment.source_hub_id == assigned_hub.id
         ).distinct().order_by(NeedsList.updated_at.desc()).all()
         
         # Organize lists by status for better UI presentation
-        approved_lists = [nl for nl in hub_needs_lists if nl.status == 'Approved']
+        approved_lists = [nl for nl in hub_needs_lists if nl.status in ['Approved', 'Resent for Dispatch']]
         dispatched_lists = [nl for nl in hub_needs_lists if nl.status == 'Dispatched']
         received_lists = [nl for nl in hub_needs_lists if nl.status == 'Received']
         completed_lists = [nl for nl in hub_needs_lists if nl.status == 'Completed']
