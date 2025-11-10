@@ -1,0 +1,112 @@
+In my DRIMS Flask app, implement a “Request Fulfilment Change” workflow so Warehouse users (Warehouse Supervisor & Warehouse Officer) can notify the Logistics team (Logistics Officer & Logistics Manager) when they need an approved Needs List fulfilment to be adjusted.
+
+1. Eligibility & Scope
+
+This feature should be available only when:
+
+A Needs List has been Approved for Fulfilment / Filled / Approved for Dispatch, and
+
+Is assigned to the Warehouse user’s own Sub-Hub as the fulfilment hub.
+
+Warehouse users cannot directly edit the approved fulfilment; they may only request changes.
+
+2. “Request Fulfilment Change” Action
+
+On the Warehouse user’s Needs List/Dispatch view, add a button: “Request Fulfilment Change”.
+
+When clicked:
+
+Open a modal or side panel with:
+
+Pre-filled Needs List ID
+
+Items table (read-only)
+
+A required comments box where the Warehouse user explains the requested change, e.g.:
+
+“Insufficient stock for Item X at this hub”
+
+“Wrong hub assigned”
+
+“Quantity needs to be reduced/increased due to real stock count”
+
+On submit, create a Fulfilment Change Request record linked to:
+
+Needs List ID
+
+Sub-Hub (Warehouse hub)
+
+Requesting user
+
+Timestamp
+
+Status: Pending Review
+
+3. Notification to Logistics Team
+
+When a Fulfilment Change Request is submitted:
+
+Send in-app notifications to:
+
+Logistics Officer
+
+Logistics Manager
+
+Notification should include:
+
+Needs List ID
+
+Sub-Hub name
+
+Short message: “Fulfilment change requested by [User] at [Sub-Hub].”
+
+Link to view and edit the fulfilment.
+
+4. Logistics Team Handling
+
+In the Logistics Officer/Manager view, add a “Fulfilment Change Requests” section or filter.
+
+For each request, they must be able to:
+
+View the Warehouse user’s comments.
+
+Adjust the fulfilment allocations if appropriate.
+
+Update request status: Approved & Updated, Rejected, or Clarification Needed.
+
+Any approved adjustment should:
+
+Update fulfilment data (Filled/Unfilled quantities, source hubs, etc.).
+
+Recalculate statuses (Fulfilled, Partially Filled, Unfilled) consistently.
+
+5. Feedback Loop to Warehouse Users
+
+When the Logistics team updates the request:
+
+Notify the relevant Warehouse users at that Sub-Hub:
+
+“Your fulfilment change request for NL-XXXX has been approved and updated.”
+
+Or “rejected / needs clarification” with comments.
+
+Show the final decision and any notes in the Needs List detail view for Warehouse users.
+
+6. Permissions & Audit
+
+Warehouse Supervisor & Officer:
+
+Can create Fulfilment Change Requests for their Sub-Hub only.
+
+Can view the status and history of their requests.
+
+Logistics Officer & Manager:
+
+Can view and act on all Fulfilment Change Requests.
+
+Only they can modify approved fulfilment values.
+
+Log every step (who requested, who changed, timestamps) in the audit trail.
+
+Outcome:
+Warehouse users gain a clear, controlled way to request changes to approved fulfilments, while the Logistics team retains authority to adjust allocations. All communication is tracked, role-based, and integrated into the existing Needs List workflow.

@@ -318,6 +318,31 @@ class NeedsListFulfilment(db.Model):
     item = db.relationship("Item")
     source_hub = db.relationship("Depot")
 
+class FulfilmentChangeRequest(db.Model):
+    """Requests from Warehouse users to modify approved fulfilment allocations"""
+    __tablename__ = 'fulfilment_change_request'
+    __table_args__ = (
+        db.Index('idx_change_request_status_created', 'status', 'created_at'),
+        db.Index('idx_change_request_needs_list', 'needs_list_id'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True)
+    needs_list_id = db.Column(db.Integer, db.ForeignKey("needs_list.id"), nullable=False)
+    requesting_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)  # Sub-Hub where request originates
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)  # Warehouse Supervisor/Officer
+    request_comments = db.Column(db.Text, nullable=False)  # Why change is needed
+    status = db.Column(db.String(50), nullable=False, default="Pending Review")  # Pending Review, Approved & Updated, Rejected, Clarification Needed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Logistics Officer/Manager who processed
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    review_comments = db.Column(db.Text, nullable=True)  # Logistics team response
+    
+    needs_list = db.relationship("NeedsList")
+    requesting_hub = db.relationship("Depot", foreign_keys=[requesting_hub_id])
+    requested_by = db.relationship("User", foreign_keys=[requested_by_id])
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
+
 # ---------- Flask-Login Configuration ----------
 login_manager = LoginManager()
 login_manager.init_app(app)
