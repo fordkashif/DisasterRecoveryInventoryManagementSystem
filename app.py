@@ -1888,8 +1888,22 @@ def transactions():
     # Build the query
     query = Transaction.query
     
+    # Warehouse Supervisors/Officers should only see transactions for their assigned Sub-Hub
+    if current_user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        if not current_user.assigned_location_id:
+            flash("You must be assigned to a hub to view transaction history.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        assigned_hub = Depot.query.get(current_user.assigned_location_id)
+        if not assigned_hub or assigned_hub.hub_type != 'SUB':
+            flash("Transaction history is only available for Sub-Hub assignments.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        # Filter to only show transactions for their assigned Sub-Hub
+        query = query.filter(Transaction.location_id == current_user.assigned_location_id)
+    
     # AGENCY hub users should only see transactions for their own hub
-    if current_user.assigned_location_id:
+    elif current_user.assigned_location_id:
         user_depot = Depot.query.get(current_user.assigned_location_id)
         if user_depot and user_depot.hub_type == 'AGENCY':
             # Filter to only show transactions for this AGENCY hub
@@ -1923,8 +1937,23 @@ def transactions():
 @app.route("/reports/stock")
 @login_required
 def report_stock():
-    # Exclude AGENCY hubs from overall stock reports
-    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
+    # Warehouse Supervisors/Officers should only see stock for their assigned Sub-Hub
+    if current_user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        if not current_user.assigned_location_id:
+            flash("You must be assigned to a hub to view stock reports.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        assigned_hub = Depot.query.get(current_user.assigned_location_id)
+        if not assigned_hub or assigned_hub.hub_type != 'SUB':
+            flash("Stock reports are only available for Sub-Hub assignments.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        # Only show their assigned Sub-Hub
+        locations = [assigned_hub]
+    else:
+        # Exclude AGENCY hubs from overall stock reports
+        locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
+    
     items = Item.query.order_by(Item.category.asc(), Item.name.asc()).all()
     stock_map = get_stock_by_location()
     
