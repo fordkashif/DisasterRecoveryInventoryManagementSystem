@@ -262,6 +262,7 @@
         
       {% endif %}
       
+      {% if needs_list.status != 'Completed' %}
       <!-- Summary Panel -->
       <div class="row g-3 mb-3">
         {% if needs_list.status in ['Dispatched', 'Received'] and dispatch_summary %}
@@ -374,7 +375,9 @@
           </div>
         {% endif %}
       </div>
+      {% endif %}
 
+      {% if needs_list.status != 'Completed' %}
       <!-- Items Table -->
       <div class="card shadow-sm">
         <div class="card-body p-0">
@@ -515,6 +518,7 @@
           </div>
         </div>
       </div>
+      {% endif %}
     </div>
 
     <!-- Workflow Sidebar -->
