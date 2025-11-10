@@ -3373,20 +3373,20 @@ def needs_list_prepare(list_id):
                     User.assigned_location_id == requesting_hub_id
                 ).all()
                 
-                for user in warehouse_users:
-                    create_notification(
-                        user_id=user.id,
-                        title="Updated Fulfilment Received",
-                        message=f"Updated fulfilment for needs list {needs_list.list_number} has been resent. Review and dispatch as required.",
-                        notification_type="success",
-                        link_url=f"/needs-lists/{needs_list.id}",
-                        payload_data={
-                            "needs_list_number": needs_list.list_number,
-                            "updated_by": current_user.full_name,
-                            "adjustment_reason": adjustment_reason
-                        },
-                        needs_list_id=needs_list.id
-                    )
+                warehouse_user_ids = [user.id for user in warehouse_users]
+                create_notifications_for_users(
+                    user_ids=warehouse_user_ids,
+                    title="Updated Fulfilment Received",
+                    message=f"Updated fulfilment for needs list {needs_list.list_number} has been resent. Review and dispatch as required.",
+                    notification_type="success",
+                    link_url=f"/needs-lists/{needs_list.id}",
+                    payload_data={
+                        "needs_list_number": needs_list.list_number,
+                        "updated_by": current_user.full_name,
+                        "adjustment_reason": adjustment_reason
+                    },
+                    needs_list_id=needs_list.id
+                )
                 
                 flash(f"Fulfilment updated and resent to {change_request.requesting_hub.name}. Warehouse team has been notified.", "success")
             else:
@@ -4005,8 +4005,8 @@ def fulfilment_change_request_process(request_id):
     
     db.session.commit()
     
-    create_notification(
-        user_id=change_request.requested_by_id,
+    create_notifications_for_users(
+        user_ids=[change_request.requested_by_id],
         title=notification_title,
         message=notification_message,
         notification_type=notification_type,
