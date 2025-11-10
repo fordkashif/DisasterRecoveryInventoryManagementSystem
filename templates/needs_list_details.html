@@ -451,13 +451,26 @@
                     <td class="align-middle">
                       <div class="status-cell">
                         {% set item_status = item_status_map[item_entry.id] %}
-                        <span class="badge {{ item_status.badge_class }} w-100 mb-1">{{ item_status.label }}</span>
+                        {% set tooltip_text = item_status.detail_text if item_status.detail_text else 'Current status: ' + item_status.label %}
+                        <span class="badge {{ item_status.badge_class }}" 
+                              data-bs-toggle="tooltip" 
+                              data-bs-placement="top" 
+                              data-bs-title="{{ tooltip_text }}"
+                              role="status"
+                              aria-label="{{ item_status.label }} - {{ tooltip_text }}">
+                          {{ item_status.label }}
+                        </span>
                         {% if item_status.detail_text %}
-                          <small class="d-block text-center text-muted mt-1">{{ item_status.detail_text }}</small>
+                          <small class="status-subtext">{{ item_status.detail_text }}</small>
                         {% endif %}
                         {% if item_status.progress_pct is not none %}
-                          <div class="progress mt-1" style="height: 4px;">
-                            <div class="progress-bar" style="width: {{ item_status.progress_pct }}%;"></div>
+                          <div class="progress mt-1" style="height: 4px; width: 80px;">
+                            <div class="progress-bar bg-primary" 
+                                 style="width: {{ item_status.progress_pct }}%;"
+                                 role="progressbar"
+                                 aria-valuenow="{{ item_status.progress_pct }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100"></div>
                           </div>
                         {% endif %}
                       </div>
@@ -887,6 +900,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Initialize Bootstrap tooltips for status badges
+  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl, {
+    trigger: 'hover focus',
+    delay: { show: 300, hide: 100 }
+  }));
+  
   // Calculate summary stats
   let fullyAllocated = 0;
   let partiallyAllocated = 0;

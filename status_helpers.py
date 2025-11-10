@@ -48,7 +48,7 @@ def get_line_item_status(needs_list, item_metrics):
     if requested == 0:
         return LineItemStatus(
             label="No Quantity",
-            badge_class="bg-secondary",
+            badge_class="text-bg-secondary",
             detail_text="Requested quantity is zero"
         )
     
@@ -61,7 +61,7 @@ def get_line_item_status(needs_list, item_metrics):
     if status == 'Draft':
         return LineItemStatus(
             label="Draft",
-            badge_class="bg-secondary",
+            badge_class="text-bg-secondary",
             detail_text="Awaiting submission"
         )
     
@@ -69,7 +69,7 @@ def get_line_item_status(needs_list, item_metrics):
     if status == 'Submitted':
         return LineItemStatus(
             label="Submitted",
-            badge_class="bg-primary",
+            badge_class="text-bg-primary",
             detail_text="Awaiting logistics review"
         )
     
@@ -78,21 +78,21 @@ def get_line_item_status(needs_list, item_metrics):
         if allocated == 0:
             return LineItemStatus(
                 label="Not Allocated",
-                badge_class="bg-secondary",
+                badge_class="text-bg-secondary",
                 detail_text="No stock allocated",
                 progress_pct=0
             )
         elif allocated < requested:
             return LineItemStatus(
                 label="Partially Allocated",
-                badge_class="bg-warning text-dark",
+                badge_class="text-bg-warning",
                 detail_text=f"{allocation_pct}% allocated",
                 progress_pct=allocation_pct
             )
         else:  # allocated >= requested
             return LineItemStatus(
                 label="Fully Allocated",
-                badge_class="bg-success",
+                badge_class="text-bg-success",
                 detail_text="100% allocated",
                 progress_pct=100
             )
@@ -102,19 +102,19 @@ def get_line_item_status(needs_list, item_metrics):
         if allocated == 0:
             return LineItemStatus(
                 label="Approved - Not Allocated",
-                badge_class="bg-secondary",
+                badge_class="text-bg-secondary",
                 detail_text="Awaiting dispatch"
             )
         elif allocated < requested:
             return LineItemStatus(
                 label="Approved - Partial",
-                badge_class="bg-warning text-dark",
+                badge_class="text-bg-warning",
                 detail_text=f"{allocation_pct}% approved"
             )
         else:
             return LineItemStatus(
                 label="Approved - Ready",
-                badge_class="bg-success",
+                badge_class="text-bg-success",
                 detail_text="Ready for dispatch"
             )
     
@@ -123,19 +123,19 @@ def get_line_item_status(needs_list, item_metrics):
         if allocated == 0:
             return LineItemStatus(
                 label="Not Dispatched",
-                badge_class="bg-danger",
+                badge_class="text-bg-danger",
                 detail_text="No items sent"
             )
         elif allocated < requested:
             return LineItemStatus(
                 label="Partially Dispatched",
-                badge_class="bg-warning text-dark",
+                badge_class="text-bg-warning",
                 detail_text=f"{allocation_pct}% dispatched"
             )
         else:
             return LineItemStatus(
                 label="Dispatched",
-                badge_class="bg-info",
+                badge_class="text-bg-info",
                 detail_text="In transit to agency"
             )
     
@@ -144,19 +144,19 @@ def get_line_item_status(needs_list, item_metrics):
         if allocated == 0:
             return LineItemStatus(
                 label="Not Dispatched",
-                badge_class="bg-danger",
+                badge_class="text-bg-danger",
                 detail_text="No items received"
             )
         elif allocated < requested:
             return LineItemStatus(
                 label="Partial Delivery",
-                badge_class="bg-warning text-dark",
+                badge_class="text-bg-warning",
                 detail_text=f"{allocation_pct}% received"
             )
         else:
             return LineItemStatus(
                 label="Received",
-                badge_class="bg-success",
+                badge_class="text-bg-success",
                 detail_text="Full quantity received"
             )
     
@@ -164,7 +164,7 @@ def get_line_item_status(needs_list, item_metrics):
     if status == 'Completed':
         return LineItemStatus(
             label="Completed",
-            badge_class="bg-success",
+            badge_class="text-bg-success",
             detail_text="Workflow complete"
         )
     
@@ -172,14 +172,14 @@ def get_line_item_status(needs_list, item_metrics):
     if status == 'Rejected':
         return LineItemStatus(
             label="Rejected",
-            badge_class="bg-danger",
+            badge_class="text-bg-danger",
             detail_text="Fulfilment rejected"
         )
     
     # Fallback for any unknown status (should not occur in normal operation)
     return LineItemStatus(
         label=status,
-        badge_class="bg-secondary",
+        badge_class="text-bg-secondary",
         detail_text="Unknown workflow state"
     )
 
@@ -197,15 +197,15 @@ def get_needs_list_status_display(needs_list):
     status = needs_list.status
     
     status_map = {
-        'Draft': {'label': 'Draft', 'badge_class': 'bg-secondary'},
-        'Submitted': {'label': 'Submitted', 'badge_class': 'bg-primary'},
-        'Fulfilment Prepared': {'label': 'Fulfilment Prepared', 'badge_class': 'bg-warning text-dark'},
-        'Awaiting Approval': {'label': 'Awaiting Approval', 'badge_class': 'bg-warning text-dark'},
-        'Approved': {'label': 'Approved', 'badge_class': 'bg-success'},
-        'Dispatched': {'label': 'Dispatched', 'badge_class': 'bg-info'},
-        'Received': {'label': 'Received', 'badge_class': 'bg-primary'},
-        'Completed': {'label': 'Completed', 'badge_class': 'bg-success'},
-        'Rejected': {'label': 'Rejected', 'badge_class': 'bg-danger'},
+        'Draft': {'label': 'Draft', 'badge_class': 'text-bg-secondary'},
+        'Submitted': {'label': 'Submitted', 'badge_class': 'text-bg-primary'},
+        'Fulfilment Prepared': {'label': 'Fulfilment Prepared', 'badge_class': 'text-bg-warning'},
+        'Awaiting Approval': {'label': 'Awaiting Approval', 'badge_class': 'text-bg-warning'},
+        'Approved': {'label': 'Approved', 'badge_class': 'text-bg-success'},
+        'Dispatched': {'label': 'Dispatched', 'badge_class': 'text-bg-info'},
+        'Received': {'label': 'Received', 'badge_class': 'text-bg-primary'},
+        'Completed': {'label': 'Completed', 'badge_class': 'text-bg-success'},
+        'Rejected': {'label': 'Rejected', 'badge_class': 'text-bg-danger'},
     }
     
-    return status_map.get(status, {'label': status, 'badge_class': 'bg-secondary'})
+    return status_map.get(status, {'label': status, 'badge_class': 'text-bg-secondary'})

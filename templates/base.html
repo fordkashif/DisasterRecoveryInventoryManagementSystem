@@ -248,6 +248,64 @@
       border-radius: 6px;
     }
     
+    /* Status Cell Styling for Needs List Table */
+    .status-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-height: 60px;
+      padding: 8px 4px;
+    }
+    
+    .status-cell .badge {
+      display: inline-block;
+      white-space: nowrap;
+      padding: 8px 12px;
+      font-size: 0.875rem;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+      max-width: fit-content;
+    }
+    
+    .status-cell .badge:hover {
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+    
+    .status-cell .status-subtext {
+      font-size: 0.8rem;
+      color: #6c757d;
+      text-align: center;
+      line-height: 1.3;
+      margin-top: 2px;
+      max-width: 140px;
+    }
+    
+    /* Responsive adjustments for status cell */
+    @media (max-width: 768px) {
+      .status-cell {
+        min-height: 50px;
+        padding: 6px 2px;
+      }
+      
+      .status-cell .badge {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+      }
+      
+      .status-cell .status-subtext {
+        font-size: 0.75rem;
+      }
+    }
+    
+    /* Tooltip enhancement for status badges */
+    .status-cell [data-bs-toggle="tooltip"] {
+      cursor: help;
+    }
+    
     h1, h2, h3, h4 {
       color: var(--goj-green);
       font-weight: 700;
