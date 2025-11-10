@@ -101,21 +101,24 @@ def get_line_item_status(needs_list, item_metrics):
     if status == 'Approved':
         if allocated == 0:
             return LineItemStatus(
-                label="Approved - Not Allocated",
+                label="Unfilled",
                 badge_class="text-bg-secondary",
-                detail_text="Awaiting dispatch"
+                detail_text="Awaiting dispatch",
+                progress_pct=0
             )
         elif allocated < requested:
             return LineItemStatus(
-                label="Approved - Partial",
+                label="Partially Filled",
                 badge_class="text-bg-warning",
-                detail_text=f"{allocation_pct}% approved"
+                detail_text=f"{allocation_pct}% filled",
+                progress_pct=allocation_pct
             )
         else:
             return LineItemStatus(
-                label="Approved - Ready",
+                label="Fulfilled",
                 badge_class="text-bg-success",
-                detail_text="Ready for dispatch"
+                detail_text="Ready for dispatch",
+                progress_pct=100
             )
     
     # Dispatched: Items in transit
