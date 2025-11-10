@@ -3324,8 +3324,8 @@ def needs_list_approve(list_id):
     # Notify warehouse supervisors and officers at source hubs to prepare for dispatch
     create_notification_for_warehouse_users_at_source_hubs(
         needs_list=needs_list,
-        title="Items Approved - Ready to Dispatch",
-        message=f"Needs list {needs_list.list_number} for {needs_list.agency_hub.name} has been approved. Please prepare items for dispatch from your hub.",
+        title="New Approved Needs List Received",
+        message=f"Needs List {needs_list.list_number} has been approved for dispatch at your Sub-Hub. Requested by {needs_list.agency_hub.name}, approved by {current_user.full_name}.",
         notification_type="task_assigned",
         triggered_by_user=current_user
     )
