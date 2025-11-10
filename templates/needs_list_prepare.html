@@ -50,7 +50,7 @@
               <div class="d-flex align-items-center">
                 <i class="bi bi-check-circle text-success me-2" style="font-size: 1.5rem;"></i>
                 <div>
-                  <small class="text-muted d-block">Fully Allocated</small>
+                  <small class="text-muted d-block">Fulfilled</small>
                   <strong id="summary-fully-allocated">0</strong>
                 </div>
               </div>
@@ -59,7 +59,7 @@
               <div class="d-flex align-items-center">
                 <i class="bi bi-hourglass-split text-warning me-2" style="font-size: 1.5rem;"></i>
                 <div>
-                  <small class="text-muted d-block">Partial</small>
+                  <small class="text-muted d-block">Partially Filled</small>
                   <strong id="summary-partial">0</strong>
                 </div>
               </div>
@@ -68,7 +68,7 @@
               <div class="d-flex align-items-center">
                 <i class="bi bi-exclamation-circle text-secondary me-2" style="font-size: 1.5rem;"></i>
                 <div>
-                  <small class="text-muted d-block">Unallocated</small>
+                  <small class="text-muted d-block">Unfilled</small>
                   <strong id="summary-unallocated">0</strong>
                 </div>
               </div>
@@ -87,15 +87,15 @@
             <div class="col-md-3">
               <select class="form-select form-select-sm" id="filterStatus">
                 <option value="all">All Items</option>
-                <option value="unallocated">Unallocated Only</option>
-                <option value="partial">Partially Allocated</option>
-                <option value="full">Fully Allocated</option>
-                <option value="over">Over-Allocated</option>
+                <option value="unallocated">Unfilled Only</option>
+                <option value="partial">Partially Filled</option>
+                <option value="full">Fulfilled</option>
+                <option value="over">Over-Filled</option>
               </select>
             </div>
             <div class="col-md-3 text-end">
               <button type="button" class="btn btn-sm btn-outline-primary" id="jumpToFirstUnallocated">
-                <i class="bi bi-skip-forward me-1"></i>Jump to First Unallocated
+                <i class="bi bi-skip-forward me-1"></i>Jump to First Unfilled
               </button>
             </div>
           </div>
@@ -119,9 +119,9 @@
                 <tr>
                   <th>Item</th>
                   <th class="text-center">Requested</th>
-                  <th>Allocate from Hubs</th>
-                  <th class="text-center">Allocated</th>
-                  <th class="text-center">Remaining</th>
+                  <th>Fill from Hubs</th>
+                  <th class="text-center">Filled</th>
+                  <th class="text-center">Unfilled</th>
                   <th class="text-center">Status</th>
                 </tr>
               </thead>
@@ -207,7 +207,7 @@
                     </td>
                     <td class="align-middle py-3">
                       <div class="d-flex flex-column align-items-center gap-2 h-100 text-center">
-                        <span class="badge status-badge w-100" id="status-{{ item_index }}">Unallocated</span>
+                        <span class="badge status-badge w-100" id="status-{{ item_index }}">Unfilled</span>
                         <div class="w-100">
                           <div class="progress" style="height: 6px;">
                             <div class="progress-bar" id="progress-bar-{{ item_index }}" style="width: 0%;"></div>
@@ -625,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function() {
       row.classList.remove('row-fully-allocated', 'row-partially-allocated', 'row-over-allocated');
       
       if (totalAllocated > requested) {
-        statusBadge.textContent = 'Over-Allocated';
+        statusBadge.textContent = 'Over-Filled';
         statusBadge.className = 'badge status-badge bg-danger';
         progressBar.className = 'progress-bar bg-danger';
         percentageText.className = 'percentage-text text-danger';
@@ -633,7 +633,7 @@ document.addEventListener('DOMContentLoaded', function() {
         row.dataset.status = 'over';
         overAllocated++;
       } else if (totalAllocated === requested && totalAllocated > 0) {
-        statusBadge.textContent = 'Fully Allocated';
+        statusBadge.textContent = 'Fulfilled';
         statusBadge.className = 'badge status-badge bg-success';
         progressBar.className = 'progress-bar bg-success';
         percentageText.className = 'percentage-text text-success';
@@ -641,7 +641,7 @@ document.addEventListener('DOMContentLoaded', function() {
         row.dataset.status = 'full';
         fullyAllocated++;
       } else if (totalAllocated > 0) {
-        statusBadge.textContent = 'Partial';
+        statusBadge.textContent = 'Partially Filled';
         statusBadge.className = 'badge status-badge bg-warning text-dark';
         progressBar.className = 'progress-bar bg-warning';
         percentageText.className = 'percentage-text text-warning';
@@ -649,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
         row.dataset.status = 'partial';
         partiallyAllocated++;
       } else {
-        statusBadge.textContent = 'Unallocated';
+        statusBadge.textContent = 'Unfilled';
         statusBadge.className = 'badge status-badge bg-secondary';
         progressBar.className = 'progress-bar bg-secondary';
         percentageText.className = 'percentage-text text-secondary';

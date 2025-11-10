@@ -340,7 +340,7 @@
                 <div class="d-flex align-items-center">
                   <i class="bi bi-check-circle text-success me-2" style="font-size: 1.5rem;"></i>
                   <div>
-                    <small class="text-muted d-block">Fully Allocated</small>
+                    <small class="text-muted d-block">Fulfilled</small>
                     <strong>{{ summary_counts.fully_allocated }}</strong>
                   </div>
                 </div>
@@ -353,7 +353,7 @@
                 <div class="d-flex align-items-center">
                   <i class="bi bi-hourglass-split text-warning me-2" style="font-size: 1.5rem;"></i>
                   <div>
-                    <small class="text-muted d-block">Partial</small>
+                    <small class="text-muted d-block">Partially Filled</small>
                     <strong>{{ summary_counts.partially_allocated }}</strong>
                   </div>
                 </div>
@@ -366,7 +366,7 @@
                 <div class="d-flex align-items-center">
                   <i class="bi bi-exclamation-triangle text-danger me-2" style="font-size: 1.5rem;"></i>
                   <div>
-                    <small class="text-muted d-block">Unallocated</small>
+                    <small class="text-muted d-block">Unfilled</small>
                     <strong>{{ summary_counts.unallocated }}</strong>
                   </div>
                 </div>
@@ -397,9 +397,9 @@
                     {# Planning Phase: Show allocation info #}
                     <th style="width: 25%;">Item</th>
                     <th style="width: 10%;" class="text-center">Requested</th>
-                    <th style="width: 30%;">Allocate from Hubs</th>
-                    <th style="width: 10%;" class="text-center">Allocated</th>
-                    <th style="width: 10%;" class="text-center">Remaining</th>
+                    <th style="width: 30%;">Fill from Hubs</th>
+                    <th style="width: 10%;" class="text-center">Filled</th>
+                    <th style="width: 10%;" class="text-center">Unfilled</th>
                     <th style="width: 15%;" class="text-center align-middle">Status</th>
                   {% else %}
                     {# Draft/Submitted: Clean two-column view (no redundant status) #}

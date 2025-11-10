@@ -12,7 +12,7 @@ class LineItemStatus:
     Represents the display status for a needs list line item
     
     Attributes:
-        label: Display text for the status (e.g., "Fully Allocated", "In Transit")
+        label: Display text for the status (e.g., "Fulfilled", "In Transit")
         badge_class: Bootstrap badge CSS class (e.g., "bg-success", "bg-warning")
         detail_text: Optional additional context (e.g., "Awaiting review", "50% fulfilled")
         progress_pct: Optional progress percentage for visualization (0-100)
@@ -77,23 +77,23 @@ def get_line_item_status(needs_list, item_metrics):
     if status in ['Fulfilment Prepared', 'Awaiting Approval']:
         if allocated == 0:
             return LineItemStatus(
-                label="Not Allocated",
+                label="Unfilled",
                 badge_class="text-bg-secondary",
-                detail_text="No stock allocated",
+                detail_text="No stock filled",
                 progress_pct=0
             )
         elif allocated < requested:
             return LineItemStatus(
-                label="Partially Allocated",
+                label="Partially Filled",
                 badge_class="text-bg-warning",
-                detail_text=f"{allocation_pct}% allocated",
+                detail_text=f"{allocation_pct}% filled",
                 progress_pct=allocation_pct
             )
         else:  # allocated >= requested
             return LineItemStatus(
-                label="Fully Allocated",
+                label="Fulfilled",
                 badge_class="text-bg-success",
-                detail_text="100% allocated",
+                detail_text="100% fulfilled",
                 progress_pct=100
             )
     
