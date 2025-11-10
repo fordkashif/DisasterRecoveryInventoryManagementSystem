@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="mb-1"><i class="bi bi-building me-2"></i>Warehouse Dashboard</h3>
+    <p class="text-muted mb-0">{{ assigned_hub.name }}</p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-primary h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-muted mb-1">Pending Dispatch</h6>
+            <h3 class="mb-0 text-primary">{{ pending_count }}</h3>
+          </div>
+          <div class="text-primary opacity-50">
+            <i class="bi bi-clipboard-check" style="font-size: 2.5rem;"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-info h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-muted mb-1">Total Stock Items</h6>
+            <h3 class="mb-0 text-info">{{ total_stock_value }}</h3>
+          </div>
+          <div class="text-info opacity-50">
+            <i class="bi bi-boxes" style="font-size: 2.5rem;"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-warning h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-muted mb-1">Low Stock Items</h6>
+            <h3 class="mb-0 text-warning">{{ low_stock_count }}</h3>
+          </div>
+          <div class="text-warning opacity-50">
+            <i class="bi bi-exclamation-triangle" style="font-size: 2.5rem;"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-success h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-muted mb-1">This Month</h6>
+            <h3 class="mb-0 text-success">{{ dispatches_this_month }}</h3>
+            <small class="text-muted">Dispatches</small>
+          </div>
+          <div class="text-success opacity-50">
+            <i class="bi bi-truck" style="font-size: 2.5rem;"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8 mb-4">
+    <div class="card">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Ready to Dispatch</h5>
+        <span class="badge bg-light text-dark">{{ pending_count }} lists</span>
+      </div>
+      <div class="card-body p-0">
+        {% if ready_to_dispatch %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>List #</th>
+                  <th>Requesting Hub</th>
+                  <th>Priority</th>
+                  <th>Approved</th>
+                  <th>Approved By</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for nl in ready_to_dispatch %}
+                <tr class="align-middle">
+                  <td>
+                    <strong>{{ nl.list_number }}</strong>
+                  </td>
+                  <td>
+                    <i class="bi bi-geo-alt-fill text-muted me-1"></i>{{ nl.agency_hub.name }}
+                  </td>
+                  <td>
+                    {% if nl.priority == 'CRITICAL' %}
+                      <span class="badge bg-danger">Critical</span>
+                    {% elif nl.priority == 'HIGH' %}
+                      <span class="badge bg-warning text-dark">High</span>
+                    {% elif nl.priority == 'MEDIUM' %}
+                      <span class="badge bg-info">Medium</span>
+                    {% else %}
+                      <span class="badge bg-secondary">Low</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <small class="text-muted">
+                      {% if nl.approved_at %}
+                        {{ nl.approved_at.strftime('%Y-%m-%d %H:%M') }}
+                      {% else %}
+                        N/A
+                      {% endif %}
+                    </small>
+                  </td>
+                  <td>
+                    <small class="text-muted">
+                      {% if nl.approved_by_user %}
+                        {{ nl.approved_by_user.full_name }}
+                      {% else %}
+                        N/A
+                      {% endif %}
+                    </small>
+                  </td>
+                  <td class="text-end">
+                    <a href="{{ url_for('needs_list_details', list_id=nl.id) }}" 
+                       class="btn btn-sm btn-primary">
+                      <i class="bi bi-truck me-1"></i>Dispatch Now
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p class="mt-2 mb-0">No needs lists ready for dispatch</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Dispatch Activity</h5>
+        <small>Last 14 days</small>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_dispatches %}
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>List #</th>
+                  <th>Destination</th>
+                  <th>Dispatched</th>
+                  <th>Dispatched By</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for nl in recent_dispatches %}
+                <tr class="align-middle">
+                  <td><strong>{{ nl.list_number }}</strong></td>
+                  <td><small>{{ nl.agency_hub.name }}</small></td>
+                  <td>
+                    <small class="text-muted">
+                      {% if nl.dispatched_at %}
+                        {{ nl.dispatched_at.strftime('%Y-%m-%d %H:%M') }}
+                      {% else %}
+                        N/A
+                      {% endif %}
+                    </small>
+                  </td>
+                  <td>
+                    <small class="text-muted">
+                      {% if nl.dispatched_by_user %}
+                        {{ nl.dispatched_by_user.full_name }}
+                      {% else %}
+                        N/A
+                      {% endif %}
+                    </small>
+                  </td>
+                  <td>
+                    {% if nl.status == 'Dispatched' %}
+                      <span class="badge bg-info">In Transit</span>
+                    {% elif nl.status == 'Received' %}
+                      <span class="badge bg-success">Received</span>
+                    {% elif nl.status == 'Completed' %}
+                      <span class="badge bg-secondary">Completed</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="p-4 text-center text-muted">
+            <p class="mb-0">No recent dispatch activity</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4 mb-4">
+    <div class="card">
+      <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-boxes me-2"></i>Current Stock</h5>
+        <a href="{{ url_for('stock_by_location') }}" class="btn btn-sm btn-light">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+      <div class="card-body p-0" style="max-height: 600px; overflow-y: auto;">
+        {% if hub_stock %}
+          <table class="table table-sm mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th>Item</th>
+                <th class="text-end">Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for stock_item in hub_stock %}
+              <tr class="align-middle {% if stock_item.is_low %}table-warning{% endif %}">
+                <td>
+                  <div class="d-flex align-items-center">
+                    {% if stock_item.is_low %}
+                      <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                    {% endif %}
+                    <div>
+                      <div>{{ stock_item.item.name }}</div>
+                      <small class="text-muted">{{ stock_item.item.sku }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <strong class="{% if stock_item.is_low %}text-warning{% endif %}">
+                    {{ stock_item.stock }}
+                  </strong>
+                  <small class="text-muted">{{ stock_item.item.unit }}</small>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if hub_stock|length >= 20 %}
+          <div class="p-2 bg-light text-center border-top">
+            <small class="text-muted">Showing top 20 items</small>
+            <a href="{{ url_for('stock_by_location') }}" class="ms-2 small">View all →</a>
+          </div>
+          {% endif %}
+        {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p class="mt-2 mb-0">No stock at this hub</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
