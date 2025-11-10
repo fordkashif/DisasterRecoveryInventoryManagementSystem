@@ -199,7 +199,7 @@ def get_needs_list_status_display(needs_list):
     status_map = {
         'Draft': {'label': 'Draft', 'badge_class': 'text-bg-secondary'},
         'Submitted': {'label': 'Submitted', 'badge_class': 'text-bg-primary'},
-        'Fulfilment Prepared': {'label': 'Fulfilment Prepared', 'badge_class': 'text-bg-warning'},
+        'Fulfilment Prepared': {'label': 'Fulfilment Prepared', 'badge_class': 'text-bg-secondary'},
         'Awaiting Approval': {'label': 'Awaiting Approval', 'badge_class': 'text-bg-warning'},
         'Approved': {'label': 'Approved', 'badge_class': 'text-bg-success'},
         'Dispatched': {'label': 'Dispatched', 'badge_class': 'text-bg-info'},

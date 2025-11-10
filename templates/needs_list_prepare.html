@@ -16,6 +16,20 @@
   <!-- Lock Status Banner -->
   {% include '_lock_status_banner.html' %}
 
+  <!-- Draft Status Banner -->
+  {% if needs_list.draft_saved_by and needs_list.draft_saved_at %}
+  <div class="alert alert-secondary d-flex align-items-center mb-3" role="alert">
+    <i class="bi bi-file-earmark-text me-2" style="font-size: 1.2rem;"></i>
+    <div class="flex-grow-1">
+      <strong>Draft Saved</strong>
+      <div class="small">
+        Last saved by <strong>{{ needs_list.draft_saved_by }}</strong> on {{ needs_list.draft_saved_at.strftime('%b %d, %Y at %I:%M %p') }}
+      </div>
+    </div>
+    <span class="badge bg-secondary ms-2">Fulfilment Prepared</span>
+  </div>
+  {% endif %}
+
   <div class="row g-3">
     <!-- Main Content Area -->
     <div class="col-lg-9">
@@ -292,20 +306,23 @@
         </div>
 
         <!-- Actions -->
-        <div class="d-grid gap-2">
+        <div class="d-flex flex-column gap-2">
           {% if lock_status and lock_status.is_locked and not lock_status.is_locked_by_current_user %}
             {# User doesn't hold lock - disable submit buttons #}
             <button type="button" class="btn btn-secondary" disabled>
               <i class="bi bi-lock-fill me-1"></i>Editing Locked by Another User
             </button>
           {% else %}
-            {# User holds lock or no lock exists - show normal submit buttons #}
+            {# User holds lock or no lock exists - show save draft and submit buttons #}
+            <button type="submit" class="btn btn-outline-primary" id="saveDraftBtn" form="fulfilmentForm" name="action" value="save_draft">
+              <i class="bi bi-save me-1"></i>Save as Draft
+            </button>
             {% if current_user.role == 'LOGISTICS_MANAGER' %}
-              <button type="submit" class="btn btn-success" id="submitBtn" form="fulfilmentForm">
+              <button type="submit" class="btn btn-success" id="submitBtn" form="fulfilmentForm" name="action" value="approve">
                 <i class="bi bi-check-circle-fill me-1"></i>Approve & Finalize
               </button>
             {% else %}
-              <button type="submit" class="btn btn-primary" id="submitBtn" form="fulfilmentForm">
+              <button type="submit" class="btn btn-primary" id="submitBtn" form="fulfilmentForm" name="action" value="submit">
                 <i class="bi bi-check-circle me-1"></i>Submit for Approval
               </button>
             {% endif %}

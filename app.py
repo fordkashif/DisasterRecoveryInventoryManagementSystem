@@ -2889,17 +2889,41 @@ def needs_list_prepare(list_id):
             flash("At least one allocation is required.", "danger")
             return redirect(url_for("needs_list_prepare", list_id=list_id))
         
-        # Check if user is a Logistics Manager - they can directly approve
+        # Determine which action was requested: "save_draft", "submit", or "approve"
+        action = request.form.get("action", "submit")
         is_manager = current_user.role == ROLE_LOGISTICS_MANAGER
         
-        if is_manager:
-            # Logistics Managers: Directly approve (stock transfers will happen during dispatch)
+        if action == "save_draft":
+            # Save as Draft - both Officer and Manager can do this
+            needs_list.status = 'Fulfilment Prepared'
+            needs_list.draft_saved_by = current_user.full_name
+            needs_list.draft_saved_at = datetime.utcnow()
+            needs_list.fulfilment_notes = fulfilment_notes
+            
+            # Extend lock to keep editing session active
+            extend_lock(needs_list, current_user)
+            
+            db.session.commit()
+            
+            flash(f"Draft saved successfully. Last saved by {current_user.full_name}.", "success")
+            return redirect(url_for("needs_list_prepare", list_id=list_id))
+        
+        elif action == "approve" and is_manager:
+            # Logistics Manager: Approve fulfilment (final action)
             needs_list.status = 'Approved'
-            needs_list.prepared_by = current_user.full_name
-            needs_list.prepared_at = datetime.utcnow()
+            
+            # Preserve Officer's preparation info if it exists, otherwise set Manager as preparer
+            if not needs_list.prepared_by or not needs_list.prepared_at:
+                needs_list.prepared_by = current_user.full_name
+                needs_list.prepared_at = datetime.utcnow()
+            
             needs_list.approved_by = current_user.full_name
             needs_list.approved_at = datetime.utcnow()
             needs_list.fulfilment_notes = fulfilment_notes
+            
+            # Clear draft fields on final approval
+            needs_list.draft_saved_by = None
+            needs_list.draft_saved_at = None
             
             # Release lock on completion
             release_lock(needs_list, current_user)
@@ -2907,12 +2931,17 @@ def needs_list_prepare(list_id):
             db.session.commit()
             
             flash(f"Needs list {needs_list.list_number} approved successfully. Ready for dispatch.", "success")
+        
         else:
-            # Logistics Officers: Submit for manager approval
+            # Logistics Officer: Submit for manager approval (default action)
             needs_list.status = 'Awaiting Approval'
             needs_list.prepared_by = current_user.full_name
             needs_list.prepared_at = datetime.utcnow()
             needs_list.fulfilment_notes = fulfilment_notes
+            
+            # Clear draft fields on submission
+            needs_list.draft_saved_by = None
+            needs_list.draft_saved_at = None
             
             # Release lock on completion
             release_lock(needs_list, current_user)
