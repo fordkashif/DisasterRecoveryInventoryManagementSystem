@@ -165,9 +165,16 @@
                                     data-item-index="{{ item_index }}"
                                     data-hub-id="{{ hub.id }}"
                                     data-max="{{ available }}"
+                                    data-hub-name="{{ hub.name }}"
                                     placeholder="0"
                                     {% if lock_status and lock_status.is_locked and not lock_status.is_locked_by_current_user %}disabled{% endif %}>
                                 </div>
+                              </div>
+                              <div class="stock-warning-message" style="display: none; margin-top: 4px;">
+                                <small class="text-danger">
+                                  <i class="bi bi-exclamation-circle"></i>
+                                  <span class="warning-text"></span>
+                                </small>
                               </div>
                             </div>
                             {% set depot_counter.value = depot_counter.value + 1 %}
@@ -523,12 +530,46 @@ document.addEventListener('DOMContentLoaded', function() {
     originalStock[key] = maxAvailable;
   });
   
+  // Validate and auto-reset individual allocation input
+  function validateAllocationInput(input) {
+    const value = parseFloat(input.value) || 0;
+    const max = parseFloat(input.dataset.max);
+    const hubName = input.dataset.hubName || 'this hub';
+    const hubRow = input.closest('.allocation-hub-row');
+    const warningContainer = hubRow.querySelector('.stock-warning-message');
+    const warningText = warningContainer.querySelector('.warning-text');
+    
+    if (value > max) {
+      // Auto-reset to maximum available stock
+      input.value = max;
+      
+      // Show warning message
+      warningText.textContent = `Cannot allocate more than ${max} available. Value reset to maximum.`;
+      warningContainer.style.display = 'block';
+      input.classList.add('is-invalid');
+      
+      // Hide warning after 3 seconds
+      setTimeout(() => {
+        warningContainer.style.display = 'none';
+        input.classList.remove('is-invalid');
+      }, 3000);
+      
+      return false;
+    } else {
+      // Clear warning if value is valid
+      warningContainer.style.display = 'none';
+      input.classList.remove('is-invalid');
+      return true;
+    }
+  }
+  
   // Live calculations
   function updateCalculations() {
     let fullyAllocated = 0;
     let partiallyAllocated = 0;
     let unallocated = 0;
     let overAllocated = 0;
+    let hasStockViolations = false;
     
     document.querySelectorAll('.item-row').forEach(row => {
       const itemIndex = row.dataset.itemIndex;
@@ -540,8 +581,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const value = parseFloat(input.value) || 0;
         totalAllocated += value;
         
+        // Check if any input currently exceeds max (shouldn't happen due to auto-reset, but double-check)
         const max = parseFloat(input.dataset.max);
         if (value > max) {
+          hasStockViolations = true;
           input.classList.add('is-invalid');
         } else {
           input.classList.remove('is-invalid');
@@ -629,10 +672,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const alert = document.getElementById('form-validation-alert');
     const alertMsg = document.getElementById('form-validation-message');
     
-    if (overAllocated > 0) {
+    if (overAllocated > 0 || hasStockViolations) {
       submitBtn.disabled = true;
       alert.style.display = 'block';
-      alertMsg.textContent = `${overAllocated} item(s) over-allocated`;
+      if (hasStockViolations) {
+        alertMsg.textContent = 'Cannot submit: Some allocations exceed available stock';
+      } else if (overAllocated > 0) {
+        alertMsg.textContent = `${overAllocated} item(s) over-allocated`;
+      }
     } else {
       submitBtn.disabled = false;
       alert.style.display = 'none';
@@ -641,8 +688,18 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Attach listeners
   document.querySelectorAll('.allocation-input').forEach(input => {
-    input.addEventListener('input', updateCalculations);
-    input.addEventListener('change', updateCalculations);
+    input.addEventListener('input', function() {
+      validateAllocationInput(this);
+      updateCalculations();
+    });
+    input.addEventListener('change', function() {
+      validateAllocationInput(this);
+      updateCalculations();
+    });
+    input.addEventListener('blur', function() {
+      validateAllocationInput(this);
+      updateCalculations();
+    });
   });
   
   // Search functionality

@@ -2816,6 +2816,9 @@ def needs_list_prepare(list_id):
             return redirect(url_for("needs_list_prepare", list_id=list_id))
         fulfilment_notes = request.form.get("fulfilment_notes", "").strip() or None
         
+        # Get current stock availability for validation
+        stock_map = get_stock_by_location()
+        
         # Delete existing fulfilment allocations if re-preparing
         NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).delete(synchronize_session=False)
         db.session.flush()
@@ -2846,10 +2849,26 @@ def needs_list_prepare(list_id):
                         try:
                             allocated_qty = int(qty_str)
                             if allocated_qty > 0:
+                                depot_id_int = int(depot_id)
+                                
+                                # Validate against available stock
+                                available_stock = stock_map.get((sku, depot_id_int), 0)
+                                if allocated_qty > available_stock:
+                                    item = Item.query.filter_by(sku=sku).first()
+                                    depot = Depot.query.get(depot_id_int)
+                                    item_name = item.name if item else sku
+                                    depot_name = depot.name if depot else f"Hub #{depot_id}"
+                                    flash(
+                                        f"Cannot allocate {allocated_qty} units of {item_name} from {depot_name}. "
+                                        f"Only {available_stock} units available.",
+                                        "danger"
+                                    )
+                                    return redirect(url_for("needs_list_prepare", list_id=list_id))
+                                
                                 fulfilment = NeedsListFulfilment(
                                     needs_list_id=needs_list.id,
                                     item_sku=sku,
-                                    source_hub_id=int(depot_id),
+                                    source_hub_id=depot_id_int,
                                     allocated_qty=allocated_qty
                                 )
                                 db.session.add(fulfilment)
