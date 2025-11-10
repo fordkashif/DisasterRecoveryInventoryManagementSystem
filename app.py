@@ -3749,6 +3749,70 @@ def fulfilment_change_request_create(list_id):
     flash(f"Change request submitted successfully. The Logistics team will review your request.", "success")
     return redirect(url_for("needs_list_details", list_id=list_id))
 
+@app.route("/change-requests/<int:request_id>/process", methods=["POST"])
+@role_required(ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER)
+def fulfilment_change_request_process(request_id):
+    """Process fulfilment change request - Logistics Officers and Managers only"""
+    change_request = FulfilmentChangeRequest.query.get_or_404(request_id)
+    
+    if change_request.status != 'Pending Review':
+        flash("This change request has already been processed.", "warning")
+        return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
+    
+    action = request.form.get("action")
+    review_comments = request.form.get("review_comments", "").strip()
+    
+    if not review_comments:
+        flash("Please provide a response to the warehouse team.", "warning")
+        return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
+    
+    if action == "approve":
+        change_request.status = 'Approved & Updated'
+        flash_message = "Change request approved. Please update the fulfilment as needed."
+        notification_title = "Fulfilment Change Request Approved"
+        notification_message = f"Your change request for needs list {change_request.needs_list.list_number} has been approved."
+        notification_type = "success"
+    elif action == "reject":
+        change_request.status = 'Rejected'
+        flash_message = "Change request rejected."
+        notification_title = "Fulfilment Change Request Rejected"
+        notification_message = f"Your change request for needs list {change_request.needs_list.list_number} has been rejected."
+        notification_type = "alert"
+    elif action == "clarify":
+        change_request.status = 'Clarification Needed'
+        flash_message = "Clarification requested from warehouse team."
+        notification_title = "Clarification Needed on Change Request"
+        notification_message = f"The Logistics team needs more information about your change request for needs list {change_request.needs_list.list_number}."
+        notification_type = "info"
+    else:
+        flash("Invalid action.", "danger")
+        return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
+    
+    change_request.review_comments = review_comments
+    change_request.reviewed_by_id = current_user.id
+    change_request.reviewed_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    create_notification(
+        user_id=change_request.requested_by_id,
+        title=notification_title,
+        message=notification_message,
+        notification_type=notification_type,
+        link_url=f"/needs-lists/{change_request.needs_list_id}",
+        payload_data={
+            "needs_list_number": change_request.needs_list.list_number,
+            "reviewed_by": current_user.full_name,
+            "reviewed_by_id": current_user.id,
+            "review_comments": review_comments,
+            "change_request_id": change_request.id
+        },
+        needs_list_id=change_request.needs_list_id
+    )
+    
+    flash(flash_message, "success")
+    return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
+
 @app.route("/packages/<int:package_id>/fulfill", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER)
 def package_fulfill(package_id):
