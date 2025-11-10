@@ -448,7 +448,7 @@
                         <strong>{{ item_entry.requested_qty - total_allocated }}</strong>
                       </td>
                     {% endif %}
-                    <td class="align-middle">
+                    <td class="align-middle text-center p-2">
                       <div class="status-cell">
                         {% set item_status = item_status_map[item_entry.id] %}
                         {% set tooltip_text = item_status.detail_text if item_status.detail_text else 'Current status: ' + item_status.label %}
@@ -464,7 +464,7 @@
                           <small class="status-subtext">{{ item_status.detail_text }}</small>
                         {% endif %}
                         {% if item_status.progress_pct is not none %}
-                          <div class="progress mt-1" style="height: 4px; width: 80px;">
+                          <div class="progress" style="height: 4px; width: 80px;">
                             <div class="progress-bar bg-primary" 
                                  style="width: {{ item_status.progress_pct }}%;"
                                  role="progressbar"
