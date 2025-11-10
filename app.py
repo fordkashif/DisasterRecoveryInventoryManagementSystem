@@ -3134,36 +3134,13 @@ def needs_list_approve(list_id):
         triggered_by_user=current_user
     )
     
-    # Notify Logistics Officers about approved items ready for dispatch
-    create_notifications_for_role(
-        role=ROLE_LOGISTICS_OFFICER,
-        title="Items Approved - Ready for Dispatch",
-        message=f"Needs list {needs_list.list_number} for {needs_list.agency_hub.name} has been approved and is ready for dispatch.",
+    # Notify warehouse supervisors and officers at source hubs to prepare for dispatch
+    create_notification_for_warehouse_users_at_source_hubs(
+        needs_list=needs_list,
+        title="Items Approved - Ready to Dispatch",
+        message=f"Needs list {needs_list.list_number} for {needs_list.agency_hub.name} has been approved. Please prepare items for dispatch from your hub.",
         notification_type="task_assigned",
-        link_url=f"/needs-lists/{needs_list.id}",
-        payload_data={
-            "needs_list_number": needs_list.list_number,
-            "agency_hub": needs_list.agency_hub.name,
-            "approved_by": current_user.full_name,
-            "approved_by_id": current_user.id
-        },
-        needs_list_id=needs_list.id
-    )
-    
-    # Notify Warehouse Staff about approved items to prepare for dispatch
-    create_notifications_for_role(
-        role=ROLE_WAREHOUSE_STAFF,
-        title="Items Approved - Prepare for Dispatch",
-        message=f"Needs list {needs_list.list_number} for {needs_list.agency_hub.name} has been approved. Prepare items for dispatch.",
-        notification_type="task_assigned",
-        link_url=f"/needs-lists/{needs_list.id}",
-        payload_data={
-            "needs_list_number": needs_list.list_number,
-            "agency_hub": needs_list.agency_hub.name,
-            "approved_by": current_user.full_name,
-            "approved_by_id": current_user.id
-        },
-        needs_list_id=needs_list.id
+        triggered_by_user=current_user
     )
     
     flash(f"Needs list {needs_list.list_number} approved successfully. Ready for dispatch.", "success")
@@ -4474,6 +4451,75 @@ def create_notification_for_agency_hub(needs_list, title, message, notification_
         
     except Exception as e:
         print(f"Error creating notifications: {str(e)}")
+        db.session.rollback()
+
+def create_notification_for_warehouse_users_at_source_hubs(needs_list, title, message, notification_type, triggered_by_user=None):
+    """
+    Create notifications for warehouse supervisors and officers at source hubs.
+    Only notifies users assigned to the source hubs that will fulfill this needs list.
+    
+    Args:
+        needs_list: NeedsList object
+        title: Notification title
+        message: Notification message
+        notification_type: Type of notification (e.g., "approved")
+        triggered_by_user: User who triggered the notification (for audit trail)
+    """
+    try:
+        import json
+        
+        # Get all source hubs from fulfilments
+        fulfilments = NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).all()
+        source_hub_ids = {f.source_hub_id for f in fulfilments}
+        
+        if not source_hub_ids:
+            print(f"Warning: No source hubs found for needs list {needs_list.list_number}")
+            return
+        
+        # Get all warehouse supervisors and officers assigned to these source hubs
+        warehouse_users = User.query.filter(
+            User.role.in_([ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]),
+            User.assigned_location_id.in_(source_hub_ids),
+            User.is_active == True
+        ).all()
+        
+        if not warehouse_users:
+            print(f"Warning: No warehouse users found at source hubs for needs list {needs_list.list_number}")
+            return
+        
+        # Build link URL to the needs list detail page
+        link_url = f"/needs-lists/{needs_list.id}"
+        
+        # Build payload for audit trail
+        payload_data = {
+            "needs_list_number": needs_list.list_number,
+            "agency_hub": needs_list.agency_hub.name if needs_list.agency_hub else None,
+            "triggered_by": triggered_by_user.full_name if triggered_by_user else "System",
+            "triggered_by_id": triggered_by_user.id if triggered_by_user else None,
+        }
+        payload_json = json.dumps(payload_data)
+        
+        # Create notification for each warehouse user
+        for user in warehouse_users:
+            notification = Notification(
+                user_id=user.id,
+                hub_id=user.assigned_location_id,
+                needs_list_id=needs_list.id,
+                title=title,
+                message=message,
+                type=notification_type,
+                status='unread',
+                link_url=link_url,
+                payload=payload_json,
+                is_archived=False
+            )
+            db.session.add(notification)
+        
+        db.session.commit()
+        print(f"Created {len(warehouse_users)} warehouse user notifications for {notification_type} event on {needs_list.list_number}")
+        
+    except Exception as e:
+        print(f"Error creating warehouse notifications: {str(e)}")
         db.session.rollback()
 
 @app.route("/uploads/<path:file_path>")
