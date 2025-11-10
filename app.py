@@ -2916,6 +2916,15 @@ def needs_list_details(list_id):
     if needs_list.status == 'Approved' and current_user.role in [ROLE_ADMIN, ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
         can_dispatch, _ = can_dispatch_needs_list(current_user, needs_list)
     
+    # Fetch change requests for this needs list
+    change_requests = FulfilmentChangeRequest.query.filter_by(
+        needs_list_id=needs_list.id
+    ).options(
+        db.joinedload(FulfilmentChangeRequest.requested_by),
+        db.joinedload(FulfilmentChangeRequest.requesting_hub),
+        db.joinedload(FulfilmentChangeRequest.reviewed_by)
+    ).order_by(FulfilmentChangeRequest.created_at.desc()).all()
+    
     return render_template("needs_list_details.html", 
                          needs_list=needs_list, 
                          user_depot=user_depot, 
@@ -2926,7 +2935,8 @@ def needs_list_details(list_id):
                          line_items=line_items,
                          summary_counts=summary_counts,
                          header_status=header_status,
-                         can_dispatch=can_dispatch)
+                         can_dispatch=can_dispatch,
+                         change_requests=change_requests)
 
 @app.route("/needs-lists/<int:list_id>/submit", methods=["POST"])
 @login_required
@@ -3676,11 +3686,13 @@ def fulfilment_change_request_create(list_id):
         flash("Only Sub-Hub warehouse users can request fulfilment changes.", "danger")
         return redirect(url_for("needs_list_details", list_id=list_id))
     
-    fulfilments = NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).all()
-    source_hub_ids = {f.source_hub_id for f in fulfilments}
+    hub_fulfilments = NeedsListFulfilment.query.filter_by(
+        needs_list_id=needs_list.id,
+        source_hub_id=assigned_hub.id
+    ).all()
     
-    if assigned_hub.id not in source_hub_ids:
-        flash("You can only request changes for needs lists assigned to your Sub-Hub.", "danger")
+    if not hub_fulfilments:
+        flash(f"Your Sub-Hub ({assigned_hub.name}) has no fulfilment allocations for this needs list. Only hubs with assigned fulfilments can request changes.", "danger")
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     request_comments = request.form.get("request_comments", "").strip()
