@@ -385,23 +385,26 @@
             <table class="table table-hover mb-0">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 25%;">Item</th>
-                  <th style="width: 10%;" class="text-center">Requested</th>
                   {% if needs_list.status in ['Dispatched', 'Received'] %}
                     {# Execution Phase: Show dispatch/delivery info #}
+                    <th style="width: 25%;">Item</th>
+                    <th style="width: 10%;" class="text-center">Requested</th>
                     <th style="width: 25%;">Dispatched From</th>
                     <th style="width: 10%;" class="text-center">Dispatched</th>
                     <th style="width: 10%;" class="text-center">Fulfillment</th>
                     <th style="width: 20%;" class="text-center align-middle">Status</th>
                   {% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}
                     {# Planning Phase: Show allocation info #}
+                    <th style="width: 25%;">Item</th>
+                    <th style="width: 10%;" class="text-center">Requested</th>
                     <th style="width: 30%;">Allocate from Hubs</th>
                     <th style="width: 10%;" class="text-center">Allocated</th>
                     <th style="width: 10%;" class="text-center">Remaining</th>
                     <th style="width: 15%;" class="text-center align-middle">Status</th>
                   {% else %}
-                    {# Draft/Submitted: Minimal view #}
-                    <th style="width: 35%;" class="text-center align-middle">Status</th>
+                    {# Draft/Submitted: Clean two-column view (no redundant status) #}
+                    <th style="width: 70%;">Item</th>
+                    <th style="width: 30%;" class="text-center">Requested Quantity</th>
                   {% endif %}
                 </tr>
               </thead>
@@ -460,6 +463,33 @@
                           <small class="text-muted">Shortfall: {{ line_item.remaining_qty }}</small>
                         {% endif %}
                       </td>
+                      <td class="align-middle text-center p-2">
+                        <div class="status-cell">
+                          {% set item_status = line_item.status %}
+                          {% set tooltip_text = item_status.detail_text if item_status.detail_text else 'Current status: ' + item_status.label %}
+                          <span class="badge {{ item_status.badge_class }}" 
+                                data-bs-toggle="tooltip" 
+                                data-bs-placement="top" 
+                                data-bs-title="{{ tooltip_text }}"
+                                role="status"
+                                aria-label="{{ item_status.label }} - {{ tooltip_text }}">
+                            {{ item_status.label }}
+                          </span>
+                          {% if item_status.detail_text %}
+                            <small class="status-subtext">{{ item_status.detail_text }}</small>
+                          {% endif %}
+                          {% if item_status.progress_pct is not none %}
+                            <div class="progress" style="height: 4px; width: 80px;">
+                              <div class="progress-bar bg-primary" 
+                                   style="width: {{ item_status.progress_pct }}%;"
+                                   role="progressbar"
+                                   aria-valuenow="{{ item_status.progress_pct }}"
+                                   aria-valuemin="0"
+                                   aria-valuemax="100"></div>
+                            </div>
+                          {% endif %}
+                        </div>
+                      </td>
                     {% elif needs_list.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved'] %}
                       {# PLANNING PHASE: Show allocation details #}
                       <td>
@@ -483,34 +513,34 @@
                       <td class="text-center align-middle">
                         <strong>{{ line_item.remaining_qty }}</strong>
                       </td>
+                      <td class="align-middle text-center p-2">
+                        <div class="status-cell">
+                          {% set item_status = line_item.status %}
+                          {% set tooltip_text = item_status.detail_text if item_status.detail_text else 'Current status: ' + item_status.label %}
+                          <span class="badge {{ item_status.badge_class }}" 
+                                data-bs-toggle="tooltip" 
+                                data-bs-placement="top" 
+                                data-bs-title="{{ tooltip_text }}"
+                                role="status"
+                                aria-label="{{ item_status.label }} - {{ tooltip_text }}">
+                            {{ item_status.label }}
+                          </span>
+                          {% if item_status.detail_text %}
+                            <small class="status-subtext">{{ item_status.detail_text }}</small>
+                          {% endif %}
+                          {% if item_status.progress_pct is not none %}
+                            <div class="progress" style="height: 4px; width: 80px;">
+                              <div class="progress-bar bg-primary" 
+                                   style="width: {{ item_status.progress_pct }}%;"
+                                   role="progressbar"
+                                   aria-valuenow="{{ item_status.progress_pct }}"
+                                   aria-valuemin="0"
+                                   aria-valuemax="100"></div>
+                            </div>
+                          {% endif %}
+                        </div>
+                      </td>
                     {% endif %}
-                    <td class="align-middle text-center p-2">
-                      <div class="status-cell">
-                        {% set item_status = line_item.status %}
-                        {% set tooltip_text = item_status.detail_text if item_status.detail_text else 'Current status: ' + item_status.label %}
-                        <span class="badge {{ item_status.badge_class }}" 
-                              data-bs-toggle="tooltip" 
-                              data-bs-placement="top" 
-                              data-bs-title="{{ tooltip_text }}"
-                              role="status"
-                              aria-label="{{ item_status.label }} - {{ tooltip_text }}">
-                          {{ item_status.label }}
-                        </span>
-                        {% if item_status.detail_text %}
-                          <small class="status-subtext">{{ item_status.detail_text }}</small>
-                        {% endif %}
-                        {% if item_status.progress_pct is not none %}
-                          <div class="progress" style="height: 4px; width: 80px;">
-                            <div class="progress-bar bg-primary" 
-                                 style="width: {{ item_status.progress_pct }}%;"
-                                 role="progressbar"
-                                 aria-valuenow="{{ item_status.progress_pct }}"
-                                 aria-valuemin="0"
-                                 aria-valuemax="100"></div>
-                          </div>
-                        {% endif %}
-                      </div>
-                    </td>
                   </tr>
                 {% endfor %}
               </tbody>
