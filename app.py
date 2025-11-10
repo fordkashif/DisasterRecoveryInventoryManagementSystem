@@ -3345,8 +3345,11 @@ def needs_list_prepare(list_id):
                 )
                 db.session.add(version)
                 
-                # Update change request status
+                # Update change request status and mark as reviewed
                 change_request.status = 'Approved & Resent'
+                if not change_request.reviewed_by_id:
+                    change_request.reviewed_by_id = current_user.id
+                    change_request.reviewed_at = datetime.utcnow()
                 
                 # Set needs list status to Resent for Dispatch
                 needs_list.status = 'Resent for Dispatch'
@@ -3475,10 +3478,9 @@ def needs_list_prepare(list_id):
             return redirect(url_for("needs_list_details", list_id=list_id))
         
         # Transition change request to 'In Progress' when Manager opens editor
+        # Don't set reviewed_by/at yet - only when they commit a decision
         if change_request.status == 'Pending Review':
             change_request.status = 'In Progress'
-            change_request.reviewed_by_id = current_user.id
-            change_request.reviewed_at = datetime.utcnow()
             db.session.commit()
             flash("You are now editing this fulfilment in response to a change request.", "info")
     
@@ -3952,7 +3954,9 @@ def fulfilment_change_request_process(request_id):
     """Process fulfilment change request - Logistics Officers and Managers only"""
     change_request = FulfilmentChangeRequest.query.get_or_404(request_id)
     
-    if change_request.status != 'Pending Review':
+    # Allow processing of Pending Review or In Progress requests
+    # In Progress means Manager opened editor but decided to reject/clarify instead
+    if change_request.status not in ['Pending Review', 'In Progress']:
         flash("This change request has already been processed.", "warning")
         return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
     
