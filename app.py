@@ -1548,7 +1548,7 @@ def warehouse_dashboard():
                          dispatches_this_month=dispatches_this_month)
 
 @app.route("/items")
-@role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_WAREHOUSE_STAFF, ROLE_AUDITOR, ROLE_EXECUTIVE)
+@role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_WAREHOUSE_STAFF, ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER, ROLE_AUDITOR, ROLE_EXECUTIVE)
 def items():
     q = request.args.get("q", "").strip()
     cat = request.args.get("category", "").strip()
@@ -1567,21 +1567,36 @@ def items():
     # Get stock by location for all items
     stock_map = get_stock_by_location()
     
-    # Exclude AGENCY hubs from overall inventory displays
-    locations_query = Depot.query.filter(Depot.hub_type != 'AGENCY')
-    
-    # Apply hub filter if specified (for Logistics Manager/Officer)
-    if hub_filter:
-        try:
-            hub_id = int(hub_filter)
-            locations_query = locations_query.filter(Depot.id == hub_id)
-        except ValueError:
-            pass
-    
-    locations = locations_query.order_by(Depot.name.asc()).all()
-    
-    # Get all ODPEM hubs for filter dropdown
-    all_hubs = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
+    # For warehouse supervisors/officers: show only their assigned Sub-Hub
+    if current_user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        if not current_user.assigned_location_id:
+            flash("You must be assigned to a hub to view inventory.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        assigned_hub = Depot.query.get(current_user.assigned_location_id)
+        if not assigned_hub or assigned_hub.hub_type != 'SUB':
+            flash("Inventory access is only available for Sub-Hub assignments.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        # Warehouse users can only see their assigned hub
+        locations = [assigned_hub]
+        all_hubs = [assigned_hub]
+    else:
+        # Exclude AGENCY hubs from overall inventory displays
+        locations_query = Depot.query.filter(Depot.hub_type != 'AGENCY')
+        
+        # Apply hub filter if specified (for Logistics Manager/Officer)
+        if hub_filter:
+            try:
+                hub_id = int(hub_filter)
+                locations_query = locations_query.filter(Depot.id == hub_id)
+            except ValueError:
+                pass
+        
+        locations = locations_query.order_by(Depot.name.asc()).all()
+        
+        # Get all ODPEM hubs for filter dropdown
+        all_hubs = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
     
     return render_template("items.html", items=all_items, q=q, cat=cat, 
                           locations=locations, stock_map=stock_map, 
@@ -2571,8 +2586,31 @@ def needs_lists():
     if current_user.assigned_location_id:
         user_depot = Depot.query.get(current_user.assigned_location_id)
     
+    # Warehouse Supervisor/Officer view: Only Approved lists for their Sub-Hub
+    if current_user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        if not current_user.assigned_location_id:
+            flash("You must be assigned to a hub to view needs lists.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        assigned_hub = Depot.query.get(current_user.assigned_location_id)
+        if not assigned_hub or assigned_hub.hub_type != 'SUB':
+            flash("Needs list access is only available for Sub-Hub assignments.", "danger")
+            return redirect(url_for("warehouse_dashboard"))
+        
+        # Show only Approved needs lists that require dispatch from their assigned Sub-Hub
+        approved_lists = db.session.query(NeedsList).join(
+            NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
+        ).filter(
+            NeedsList.status == 'Approved',
+            NeedsListFulfilment.source_hub_id == assigned_hub.id
+        ).distinct().order_by(NeedsList.approved_at.desc()).all()
+        
+        return render_template("warehouse_needs_lists.html", 
+                             approved_lists=approved_lists, 
+                             assigned_hub=assigned_hub)
+    
     # Role-based views for Logistics Officers and Managers
-    if current_user.role == ROLE_LOGISTICS_OFFICER:
+    elif current_user.role == ROLE_LOGISTICS_OFFICER:
         # Logistics Officer view: All submitted needs lists awaiting fulfilment preparation
         submitted_lists = NeedsList.query.filter_by(status='Submitted').order_by(NeedsList.submitted_at.desc()).all()
         # Draft Fulfilments: Show ALL drafts (not just their own) for visibility and collaboration

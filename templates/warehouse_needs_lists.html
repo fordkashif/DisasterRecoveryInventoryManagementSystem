@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="mb-1"><i class="bi bi-clipboard-check me-2"></i>Needs Lists - Dispatch Queue</h3>
+    <p class="text-muted mb-0">{{ assigned_hub.name }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Ready for Dispatch</h5>
+    <span class="badge bg-light text-dark">{{ approved_lists|length }} lists</span>
+  </div>
+  <div class="card-body p-0">
+    {% if approved_lists %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>List #</th>
+              <th>Requesting Hub</th>
+              <th>Priority</th>
+              <th>Approved</th>
+              <th>Approved By</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for nl in approved_lists %}
+            <tr class="align-middle">
+              <td>
+                <strong>{{ nl.list_number }}</strong>
+                {% if nl.event %}
+                  <br><small class="text-muted"><i class="bi bi-exclamation-triangle me-1"></i>{{ nl.event.name }}</small>
+                {% endif %}
+              </td>
+              <td>
+                <i class="bi bi-geo-alt-fill text-muted me-1"></i>{{ nl.agency_hub.name }}
+              </td>
+              <td>
+                {% if nl.priority == 'CRITICAL' %}
+                  <span class="badge bg-danger">Critical</span>
+                {% elif nl.priority == 'HIGH' %}
+                  <span class="badge bg-warning text-dark">High</span>
+                {% elif nl.priority == 'MEDIUM' %}
+                  <span class="badge bg-info">Medium</span>
+                {% else %}
+                  <span class="badge bg-secondary">Low</span>
+                {% endif %}
+              </td>
+              <td>
+                <small class="text-muted">
+                  {% if nl.approved_at %}
+                    {{ nl.approved_at.strftime('%Y-%m-%d %H:%M') }}
+                  {% else %}
+                    N/A
+                  {% endif %}
+                </small>
+              </td>
+              <td>
+                <small class="text-muted">
+                  {% if nl.approved_by_user %}
+                    {{ nl.approved_by_user.full_name }}
+                  {% else %}
+                    N/A
+                  {% endif %}
+                </small>
+              </td>
+              <td>
+                <span class="badge bg-success">Approved</span>
+              </td>
+              <td class="text-end">
+                <a href="{{ url_for('needs_list_details', list_id=nl.id) }}" 
+                   class="btn btn-sm btn-primary">
+                  <i class="bi bi-truck me-1"></i>Dispatch Now
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-5 text-center text-muted">
+        <i class="bi bi-inbox" style="font-size: 4rem; opacity: 0.2;"></i>
+        <h5 class="mt-3">No needs lists ready for dispatch</h5>
+        <p class="mb-0">Approved needs lists requiring dispatch from {{ assigned_hub.name }} will appear here.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="mt-4 alert alert-info">
+  <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Warehouse Dispatch Instructions</h6>
+  <ul class="mb-0">
+    <li>This list shows only needs lists approved for dispatch that require items from your Sub-Hub ({{ assigned_hub.name }})</li>
+    <li>Click "Dispatch Now" to view the details and dispatch the items</li>
+    <li>After dispatching, the status will update and the requesting hub will be notified</li>
+    <li>Critical priority items should be dispatched first</li>
+  </ul>
+</div>
+{% endblock %}
