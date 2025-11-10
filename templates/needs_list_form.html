@@ -67,71 +67,88 @@
 
             <hr class="my-4">
 
-            <h4 class="mb-3"><i class="bi bi-cart-plus me-2"></i>Requested Items</h4>
-            
-            <div id="items-container">
-              {% if is_edit and needs_list.items %}
-                {# Edit mode: Pre-fill existing items #}
-                {% for item_entry in needs_list.items %}
-                  <div class="item-row row mb-3">
-                    <div class="col-md-4">
-                      <label class="form-label">Item <span class="text-danger">*</span></label>
-                      <select class="form-select item-select" name="item_sku_{{ loop.index0 }}" required>
-                        <option value="">Select Item</option>
-                        {% for item in items %}
-                          <option value="{{ item.sku }}" {% if item.sku == item_entry.item_sku %}selected{% endif %}>
-                            {{ item.name }} ({{ item.unit }})
-                          </option>
-                        {% endfor %}
-                      </select>
-                    </div>
-                    <div class="col-md-2">
-                      <label class="form-label">Quantity <span class="text-danger">*</span></label>
-                      <input type="number" class="form-control" name="item_qty_{{ loop.index0 }}" min="1" value="{{ item_entry.requested_qty }}" required>
-                    </div>
-                    <div class="col-md-5">
-                      <label class="form-label">Justification</label>
-                      <input type="text" class="form-control" name="item_justification_{{ loop.index0 }}" placeholder="Why is this item needed?" value="{% if item_entry.justification %}{{ item_entry.justification }}{% endif %}">
-                    </div>
-                    <div class="col-md-1 d-flex align-items-end">
-                      <button type="button" class="btn btn-outline-danger btn-sm remove-item" {% if loop.length == 1 %}style="display:none;"{% endif %}>
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </div>
-                  </div>
-                {% endfor %}
-              {% else %}
-                {# Create mode: One blank row #}
-                <div class="item-row row mb-3">
-                  <div class="col-md-4">
-                    <label class="form-label">Item <span class="text-danger">*</span></label>
-                    <select class="form-select item-select" name="item_sku_0" required>
-                      <option value="">Select Item</option>
-                      {% for item in items %}
-                        <option value="{{ item.sku }}">{{ item.name }} ({{ item.unit }})</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <div class="col-md-2">
-                    <label class="form-label">Quantity <span class="text-danger">*</span></label>
-                    <input type="number" class="form-control" name="item_qty_0" min="1" required>
-                  </div>
-                  <div class="col-md-5">
-                    <label class="form-label">Justification</label>
-                    <input type="text" class="form-control" name="item_justification_0" placeholder="Why is this item needed?">
-                  </div>
-                  <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-outline-danger btn-sm remove-item" style="display:none;">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                  </div>
-                </div>
-              {% endif %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4 class="mb-0"><i class="bi bi-cart-plus me-2"></i>Requested Items</h4>
+              <button type="button" class="btn btn-primary btn-sm" id="add-item">
+                <i class="bi bi-plus-circle me-1"></i>Add Item
+              </button>
             </div>
-
-            <button type="button" class="btn btn-outline-primary btn-sm mb-4" id="add-item">
-              <i class="bi bi-plus-circle me-1"></i>Add Another Item
-            </button>
+            
+            <div class="table-responsive">
+              <table class="table table-hover align-middle" id="items-table">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col" style="width: 40%;">
+                      Item <span class="text-danger">*</span>
+                    </th>
+                    <th scope="col" style="width: 15%;">
+                      Quantity <span class="text-danger">*</span>
+                    </th>
+                    <th scope="col" style="width: 38%;">
+                      Justification
+                    </th>
+                    <th scope="col" style="width: 7%;" class="text-center">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="items-container">
+                  {% if is_edit and needs_list.items %}
+                    {# Edit mode: Pre-fill existing items #}
+                    {% for item_entry in needs_list.items %}
+                      <tr class="item-row">
+                        <td>
+                          <select class="form-select form-select-sm item-select" name="item_sku_{{ loop.index0 }}" required>
+                            <option value="">Select Item</option>
+                            {% for item in items %}
+                              <option value="{{ item.sku }}" {% if item.sku == item_entry.item_sku %}selected{% endif %}>
+                                {{ item.name }} ({{ item.unit }})
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </td>
+                        <td>
+                          <input type="number" class="form-control form-control-sm" name="item_qty_{{ loop.index0 }}" min="1" value="{{ item_entry.requested_qty }}" required>
+                        </td>
+                        <td>
+                          <input type="text" class="form-control form-control-sm" name="item_justification_{{ loop.index0 }}" placeholder="Why is this item needed?" value="{% if item_entry.justification %}{{ item_entry.justification }}{% endif %}">
+                        </td>
+                        <td class="text-center">
+                          <button type="button" class="btn btn-outline-danger btn-sm remove-item" aria-label="Remove item" {% if loop.length == 1 %}style="display:none;"{% endif %}>
+                            <i class="bi bi-trash" aria-hidden="true"></i>
+                            <span class="visually-hidden">Remove</span>
+                          </button>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    {# Create mode: One blank row #}
+                    <tr class="item-row">
+                      <td>
+                        <select class="form-select form-select-sm item-select" name="item_sku_0" required>
+                          <option value="">Select Item</option>
+                          {% for item in items %}
+                            <option value="{{ item.sku }}">{{ item.name }} ({{ item.unit }})</option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" class="form-control form-control-sm" name="item_qty_0" min="1" required>
+                      </td>
+                      <td>
+                        <input type="text" class="form-control form-control-sm" name="item_justification_0" placeholder="Why is this item needed?">
+                      </td>
+                      <td class="text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-item" aria-label="Remove item" style="display:none;">
+                          <i class="bi bi-trash" aria-hidden="true"></i>
+                          <span class="visually-hidden">Remove</span>
+                        </button>
+                      </td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
 
             <hr class="my-4">
 
@@ -156,6 +173,59 @@
   </div>
 </div>
 
+<style>
+/* Enhanced table styling for better UX */
+#items-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+#items-table tbody tr:hover {
+  background-color: rgba(13, 110, 253, 0.05);
+}
+
+#items-table thead th {
+  font-weight: 600;
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  padding: 0.75rem;
+}
+
+#items-table td {
+  padding: 0.5rem;
+  vertical-align: middle;
+}
+
+#items-table .form-select-sm,
+#items-table .form-control-sm {
+  border-radius: 0.25rem;
+}
+
+/* Focus states for accessibility */
+#items-table .form-select-sm:focus,
+#items-table .form-control-sm:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Remove button styling */
+.remove-item {
+  transition: all 0.2s ease;
+}
+
+.remove-item:hover {
+  transform: scale(1.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #items-table thead th,
+  #items-table td {
+    font-size: 0.875rem;
+    padding: 0.4rem;
+  }
+}
+</style>
+
 <script>
 {% if is_edit %}
   let itemIndex = {{ needs_list.items|length }};
@@ -163,56 +233,103 @@
   let itemIndex = 1;
 {% endif %}
 
+// Add new item row
 document.getElementById('add-item').addEventListener('click', function() {
   const container = document.getElementById('items-container');
-  const newRow = document.createElement('div');
-  newRow.className = 'item-row row mb-3';
+  const newRow = document.createElement('tr');
+  newRow.className = 'item-row';
   newRow.innerHTML = `
-    <div class="col-md-4">
-      <label class="form-label">Item <span class="text-danger">*</span></label>
-      <select class="form-select item-select" name="item_sku_${itemIndex}" required>
+    <td>
+      <select class="form-select form-select-sm item-select" name="item_sku_${itemIndex}" required>
         <option value="">Select Item</option>
         {% for item in items %}
           <option value="{{ item.sku }}">{{ item.name }} ({{ item.unit }})</option>
         {% endfor %}
       </select>
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Quantity <span class="text-danger">*</span></label>
-      <input type="number" class="form-control" name="item_qty_${itemIndex}" min="1" required>
-    </div>
-    <div class="col-md-5">
-      <label class="form-label">Justification</label>
-      <input type="text" class="form-control" name="item_justification_${itemIndex}" placeholder="Why is this item needed?">
-    </div>
-    <div class="col-md-1 d-flex align-items-end">
-      <button type="button" class="btn btn-outline-danger btn-sm remove-item">
-        <i class="bi bi-trash"></i>
+    </td>
+    <td>
+      <input type="number" class="form-control form-control-sm" name="item_qty_${itemIndex}" min="1" required>
+    </td>
+    <td>
+      <input type="text" class="form-control form-control-sm" name="item_justification_${itemIndex}" placeholder="Why is this item needed?">
+    </td>
+    <td class="text-center">
+      <button type="button" class="btn btn-outline-danger btn-sm remove-item" aria-label="Remove item">
+        <i class="bi bi-trash" aria-hidden="true"></i>
+        <span class="visually-hidden">Remove</span>
       </button>
-    </div>
+    </td>
   `;
   container.appendChild(newRow);
+  
+  // Auto-focus on the first field (item select) of the new row
+  const firstField = newRow.querySelector('.item-select');
+  if (firstField) {
+    firstField.focus();
+  }
+  
   itemIndex++;
   updateRemoveButtons();
 });
 
+// Handle remove button clicks
 document.getElementById('items-container').addEventListener('click', function(e) {
   if (e.target.closest('.remove-item')) {
-    e.target.closest('.item-row').remove();
-    updateRemoveButtons();
+    const row = e.target.closest('.item-row');
+    const rows = document.querySelectorAll('.item-row');
+    
+    // Prevent removing the last row
+    if (rows.length > 1) {
+      row.remove();
+      reindexRows(); // Reindex to prevent gaps in field names
+      updateRemoveButtons();
+    }
   }
 });
 
-function updateRemoveButtons() {
+// Reindex all rows to ensure sequential numbering (0, 1, 2, 3...)
+// This prevents data loss from gaps in field names
+function reindexRows() {
   const rows = document.querySelectorAll('.item-row');
   rows.forEach((row, index) => {
+    // Update field names to match the new index
+    const itemSelect = row.querySelector('.item-select');
+    const qtyInput = row.querySelector('input[type="number"]');
+    const justInput = row.querySelector('input[type="text"]');
+    
+    if (itemSelect) itemSelect.name = `item_sku_${index}`;
+    if (qtyInput) qtyInput.name = `item_qty_${index}`;
+    if (justInput) justInput.name = `item_justification_${index}`;
+  });
+  
+  // Update itemIndex to the next available index
+  itemIndex = rows.length;
+}
+
+// Update visibility of remove buttons
+function updateRemoveButtons() {
+  const rows = document.querySelectorAll('.item-row');
+  rows.forEach((row) => {
     const removeBtn = row.querySelector('.remove-item');
     if (rows.length > 1) {
-      removeBtn.style.display = 'block';
+      removeBtn.style.display = 'inline-block';
     } else {
       removeBtn.style.display = 'none';
     }
   });
 }
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  updateRemoveButtons();
+});
+
+// Keyboard shortcuts for better UX
+document.addEventListener('keydown', function(e) {
+  // Ctrl/Cmd + Enter to submit form
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    document.getElementById('needsListForm').submit();
+  }
+});
 </script>
 {% endblock %}
