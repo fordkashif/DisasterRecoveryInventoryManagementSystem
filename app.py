@@ -339,6 +339,8 @@ def load_user(user_id):
 
 # ---------- Role Constants ----------
 ROLE_WAREHOUSE_STAFF = "WAREHOUSE_STAFF"
+ROLE_WAREHOUSE_SUPERVISOR = "WAREHOUSE_SUPERVISOR"
+ROLE_WAREHOUSE_OFFICER = "WAREHOUSE_OFFICER"
 ROLE_FIELD_PERSONNEL = "FIELD_PERSONNEL"
 ROLE_LOGISTICS_OFFICER = "LOGISTICS_OFFICER"
 ROLE_LOGISTICS_MANAGER = "LOGISTICS_MANAGER"
@@ -348,6 +350,8 @@ ROLE_AUDITOR = "AUDITOR"
 
 ALL_ROLES = [
     ROLE_WAREHOUSE_STAFF,
+    ROLE_WAREHOUSE_SUPERVISOR,
+    ROLE_WAREHOUSE_OFFICER,
     ROLE_FIELD_PERSONNEL,
     ROLE_LOGISTICS_OFFICER,
     ROLE_LOGISTICS_MANAGER,
@@ -853,10 +857,30 @@ def can_delete_needs_list(user, needs_list):
     
     return (True, None)
 
+def is_warehouse_user_assigned_to_source_hub(user, needs_list):
+    """
+    Check if a warehouse user is assigned to any of the source hubs for a needs list.
+    
+    Args:
+        user: The warehouse user (Warehouse Supervisor or Warehouse Officer)
+        needs_list: The NeedsList object
+    
+    Returns:
+        bool: True if user is assigned to at least one source hub
+    """
+    if not user.assigned_location_id:
+        return False
+    
+    # Get all source hubs from fulfilments
+    fulfilments = NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).all()
+    source_hub_ids = {f.source_hub_id for f in fulfilments}
+    
+    return user.assigned_location_id in source_hub_ids
+
 def can_dispatch_needs_list(user, needs_list):
     """
     Check if user can dispatch an approved needs list.
-    Only Logistics Officers and Managers can dispatch after approval.
+    Only Warehouse Supervisors and Warehouse Officers at the source Sub-Hub can dispatch.
     
     Returns:
         tuple: (allowed: bool, error_message: str or None)
@@ -865,9 +889,17 @@ def can_dispatch_needs_list(user, needs_list):
     if needs_list.status != 'Approved':
         return (False, "Only approved needs lists can be dispatched.")
     
-    # Only ADMIN, Logistics Officers, and Logistics Managers can dispatch
-    if user.role not in [ROLE_ADMIN, ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER]:
-        return (False, "Only Logistics Officers and Managers can dispatch items.")
+    # Only ADMIN, Warehouse Supervisors, and Warehouse Officers can dispatch
+    if user.role not in [ROLE_ADMIN, ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        return (False, "Only Warehouse Supervisors and Warehouse Officers can dispatch items.")
+    
+    # For non-admin warehouse users, verify they are assigned to a source hub
+    if user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        if not user.assigned_location_id:
+            return (False, "You must be assigned to a hub to dispatch items.")
+        
+        if not is_warehouse_user_assigned_to_source_hub(user, needs_list):
+            return (False, "You can only dispatch items from your assigned hub.")
     
     return (True, None)
 
@@ -3167,9 +3199,10 @@ def needs_list_reject(list_id):
     return redirect(url_for("needs_list_details", list_id=list_id))
 
 @app.route("/needs-lists/<int:list_id>/dispatch", methods=["POST"])
-@role_required(ROLE_ADMIN, ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER)
+@role_required(ROLE_ADMIN, ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER)
 def needs_list_dispatch(list_id):
-    """Dispatch approved needs list - Creates stock transactions and updates status to Dispatched"""
+    """Dispatch approved needs list - Creates stock transactions and updates status to Dispatched
+    Only Warehouse Supervisors and Warehouse Officers at source Sub-Hubs can dispatch."""
     needs_list = NeedsList.query.get_or_404(list_id)
     
     # Permission check using centralized helper

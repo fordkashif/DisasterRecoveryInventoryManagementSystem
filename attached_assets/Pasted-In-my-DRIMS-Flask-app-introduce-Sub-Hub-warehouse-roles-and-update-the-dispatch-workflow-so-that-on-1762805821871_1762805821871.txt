@@ -1,0 +1,66 @@
+In my DRIMS Flask app, introduce Sub-Hub warehouse roles and update the dispatch workflow so that only these roles can physically dispatch approved orders.
+
+Requirements:
+
+New Roles at Sub-Hubs
+
+Add two new user roles, scoped to individual Sub-Hubs:
+
+Warehouse Supervisor (Sub-Hub)
+
+Warehouse Officer (Sub-Hub)
+
+Each user is assigned to a specific Sub-Hub Hub and can only act on orders for that Sub-Hub.
+
+Routing Approved Requests to Sub-Hubs
+
+When a Needs List is Approved for Fulfilment / Filled and assigned to a Sub-Hub as the source Hub:
+
+The corresponding Warehouse Supervisor/Officer at that Sub-Hub must see it in a “Ready to Dispatch” or similar queue.
+
+Logistics Officer and Logistics Manager should no longer see “Dispatch” actions — only view/monitor.
+
+Dispatch Permissions
+
+Only Warehouse Supervisor and Warehouse Officer at the source Sub-Hub can:
+
+Open approved fulfilment details.
+
+Confirm item picking and click “Dispatch” to complete the physical dispatch.
+
+On dispatch:
+
+Deduct stock from that Sub-Hub.
+
+Update status to “Dispatched” / “Filled” as per existing rules.
+
+Log which warehouse user performed the dispatch and when.
+
+Visibility by Role
+
+Logistics Officer & Logistics Manager:
+
+Can view all fulfilments and dispatch records.
+
+Cannot perform the “Dispatch” action.
+
+Warehouse Supervisor/Officer:
+
+Can only see and dispatch orders for their assigned Sub-Hub.
+
+Agency Hub:
+
+Sees when items have been dispatched and can confirm receipt (no dispatch permission).
+
+UI & Workflow Updates
+
+Update buttons/labels so:
+
+For Logistics roles: show “View” instead of “Dispatch” on approved items.
+
+For Warehouse roles at the relevant Sub-Hub: show “Dispatch” where applicable.
+
+Ensure all pages, actions, and API endpoints enforce this new role-based dispatch control.
+
+Outcome:
+Approved orders flow from Logistics (planning/approval) → Sub-Hub Warehouse users (physical dispatch) → Agency receipt, with dispatch actions restricted to Warehouse Supervisor/Officer roles at the appropriate Sub-Hub.
