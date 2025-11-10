@@ -222,7 +222,7 @@
     <div class="card">
       <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-boxes me-2"></i>Current Stock</h5>
-        <a href="{{ url_for('stock_by_location') }}" class="btn btn-sm btn-light">
+        <a href="{{ url_for('report_stock') }}" class="btn btn-sm btn-light">
           <i class="bi bi-arrow-right"></i>
         </a>
       </div>
@@ -262,7 +262,7 @@
           {% if hub_stock|length >= 20 %}
           <div class="p-2 bg-light text-center border-top">
             <small class="text-muted">Showing top 20 items</small>
-            <a href="{{ url_for('stock_by_location') }}" class="ms-2 small">View all →</a>
+            <a href="{{ url_for('report_stock') }}" class="ms-2 small">View all →</a>
           </div>
           {% endif %}
         {% else %}
