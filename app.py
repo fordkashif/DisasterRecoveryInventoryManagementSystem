@@ -712,6 +712,20 @@ def can_view_needs_list(user, needs_list):
     if user.role in [ROLE_LOGISTICS_OFFICER, ROLE_LOGISTICS_MANAGER]:
         return (True, None)
     
+    # Warehouse Supervisors/Officers: check if their Sub-Hub is a source hub for this needs list
+    if user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        if user.assigned_location_id:
+            # Check if this needs list has fulfilments from their assigned hub
+            has_fulfilment = NeedsListFulfilment.query.filter_by(
+                needs_list_id=needs_list.id,
+                source_hub_id=user.assigned_location_id
+            ).first()
+            
+            if has_fulfilment:
+                return (True, None)
+        
+        return (False, "You can only view needs lists assigned to your Sub-Hub.")
+    
     # Hub-based users: check if they own this needs list
     if user.assigned_location_id:
         user_depot = Depot.query.get(user.assigned_location_id)
@@ -2615,7 +2629,7 @@ def needs_lists():
     if current_user.assigned_location_id:
         user_depot = Depot.query.get(current_user.assigned_location_id)
     
-    # Warehouse Supervisor/Officer view: Only Approved lists for their Sub-Hub
+    # Warehouse Supervisor/Officer view: All relevant statuses for their Sub-Hub
     if current_user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
         if not current_user.assigned_location_id:
             flash("You must be assigned to a hub to view needs lists.", "danger")
@@ -2626,16 +2640,26 @@ def needs_lists():
             flash("Needs list access is only available for Sub-Hub assignments.", "danger")
             return redirect(url_for("warehouse_dashboard"))
         
-        # Show only Approved needs lists that require dispatch from their assigned Sub-Hub
-        approved_lists = db.session.query(NeedsList).join(
+        # Show all needs lists (Approved, Dispatched, Received, Completed) where their Sub-Hub is the fulfilment/dispatch hub
+        # This ensures warehouse supervisors only see lists assigned to their specific hub
+        hub_needs_lists = db.session.query(NeedsList).join(
             NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
         ).filter(
-            NeedsList.status == 'Approved',
+            NeedsList.status.in_(['Approved', 'Dispatched', 'Received', 'Completed']),
             NeedsListFulfilment.source_hub_id == assigned_hub.id
-        ).distinct().order_by(NeedsList.approved_at.desc()).all()
+        ).distinct().order_by(NeedsList.updated_at.desc()).all()
+        
+        # Organize lists by status for better UI presentation
+        approved_lists = [nl for nl in hub_needs_lists if nl.status == 'Approved']
+        dispatched_lists = [nl for nl in hub_needs_lists if nl.status == 'Dispatched']
+        received_lists = [nl for nl in hub_needs_lists if nl.status == 'Received']
+        completed_lists = [nl for nl in hub_needs_lists if nl.status == 'Completed']
         
         return render_template("warehouse_needs_lists.html", 
-                             approved_lists=approved_lists, 
+                             approved_lists=approved_lists,
+                             dispatched_lists=dispatched_lists,
+                             received_lists=received_lists,
+                             completed_lists=completed_lists,
                              assigned_hub=assigned_hub)
     
     # Role-based views for Logistics Officers and Managers
