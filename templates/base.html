@@ -528,12 +528,19 @@
         <!-- ODPEM Full Menu -->
         <div class="nav-section">
           <div class="nav-section-title">Main</div>
-          <a href="{{ url_for('dashboard') }}" class="nav-item-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
-            <i class="bi bi-grid-1x2"></i>
-            <span class="nav-label">Dashboard</span>
-          </a>
+          {% if current_user.role not in ['WAREHOUSE_SUPERVISOR', 'WAREHOUSE_OFFICER'] %}
+            <a href="{{ url_for('dashboard') }}" class="nav-item-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+              <i class="bi bi-grid-1x2"></i>
+              <span class="nav-label">Dashboard</span>
+            </a>
+          {% else %}
+            <a href="{{ url_for('warehouse_dashboard') }}" class="nav-item-link {% if request.endpoint == 'warehouse_dashboard' %}active{% endif %}">
+              <i class="bi bi-grid-1x2"></i>
+              <span class="nav-label">Dashboard</span>
+            </a>
+          {% endif %}
           
-          {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER', 'WAREHOUSE_STAFF', 'AUDITOR', 'EXECUTIVE'] %}
+          {% if current_user.role in ['ADMIN', 'LOGISTICS_MANAGER', 'LOGISTICS_OFFICER', 'WAREHOUSE_STAFF', 'WAREHOUSE_SUPERVISOR', 'WAREHOUSE_OFFICER', 'AUDITOR', 'EXECUTIVE'] %}
             <a href="{{ url_for('items') }}" class="nav-item-link {% if request.endpoint == 'items' %}active{% endif %}">
               <i class="bi bi-box-seam"></i>
               <span class="nav-label">Inventory</span>
@@ -551,7 +558,7 @@
         <div class="nav-section">
           <div class="nav-section-title">Operations</div>
           
-          {% if current_user.role in ['LOGISTICS_OFFICER', 'LOGISTICS_MANAGER'] or (current_user.assigned_location and current_user.assigned_location.hub_type == 'SUB') %}
+          {% if current_user.role in ['LOGISTICS_OFFICER', 'LOGISTICS_MANAGER', 'WAREHOUSE_SUPERVISOR', 'WAREHOUSE_OFFICER'] or (current_user.assigned_location and current_user.assigned_location.hub_type == 'SUB') %}
             <a href="{{ url_for('needs_lists') }}" class="nav-item-link {% if 'needs' in request.endpoint %}active{% endif %}">
               <i class="bi bi-clipboard-check"></i>
               <span class="nav-label">Needs Lists</span>

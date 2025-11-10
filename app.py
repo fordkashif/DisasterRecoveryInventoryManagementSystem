@@ -1187,6 +1187,9 @@ def record_package_status_change(package, old_status, new_status, changed_by, no
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
+        # Redirect warehouse users to their dedicated dashboard
+        if current_user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+            return redirect(url_for("warehouse_dashboard"))
         return redirect(url_for("dashboard"))
     
     if request.method == "POST":
@@ -1214,6 +1217,11 @@ def login():
             next_page = request.args.get("next")
             if next_page and is_safe_url(next_page):
                 return redirect(next_page)
+            
+            # Redirect warehouse users to their dedicated dashboard
+            if user.role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+                return redirect(url_for("warehouse_dashboard"))
+            
             return redirect(url_for("dashboard"))
         else:
             flash("Invalid email or password.", "danger")
