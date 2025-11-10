@@ -16,6 +16,34 @@
   <!-- Lock Status Banner -->
   {% include '_lock_status_banner.html' %}
 
+  <!-- Change Request Banner -->
+  {% if change_request %}
+  <div class="alert alert-warning d-flex align-items-start mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
+    <div class="flex-grow-1">
+      <h6 class="alert-heading mb-2"><strong>Editing Due to Change Request</strong></h6>
+      <p class="mb-2">
+        <strong>{{ change_request.requesting_hub.name }}</strong> requested a fulfilment change for this needs list.
+      </p>
+      <div class="bg-light p-2 rounded mb-2">
+        <small class="text-muted d-block mb-1">Warehouse Team's Request:</small>
+        <small class="d-block">{{ change_request.request_comments }}</small>
+      </div>
+      {% if change_request.review_comments %}
+      <div class="bg-light p-2 rounded">
+        <small class="text-muted d-block mb-1">Your Initial Response:</small>
+        <small class="d-block">{{ change_request.review_comments }}</small>
+      </div>
+      {% endif %}
+      <hr class="my-2">
+      <small class="text-muted">
+        <i class="bi bi-info-circle me-1"></i>
+        Please adjust the fulfilment allocations below and provide a reason for the adjustment before approving.
+      </small>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Draft Status Banner -->
   {% if needs_list.draft_saved_by and needs_list.draft_saved_at %}
   <div class="alert alert-secondary d-flex align-items-center mb-3" role="alert">

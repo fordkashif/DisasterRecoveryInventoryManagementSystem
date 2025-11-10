@@ -3255,28 +3255,124 @@ def needs_list_prepare(list_id):
             return redirect(url_for("needs_list_prepare", list_id=list_id))
         
         elif action == "approve" and is_manager:
-            # Logistics Manager: Approve fulfilment (final action)
-            needs_list.status = 'Approved'
+            # Check if this is editing due to a change request
+            from flask import session
+            editing_change_request_id = session.get('editing_change_request_id')
+            before_snapshot = session.get('fulfilment_before_snapshot')
             
-            # Preserve Officer's preparation info if it exists, otherwise set Manager as preparer
-            if not needs_list.prepared_by or not needs_list.prepared_at:
-                needs_list.prepared_by = current_user.full_name
-                needs_list.prepared_at = datetime.utcnow()
-            
-            needs_list.approved_by = current_user.full_name
-            needs_list.approved_at = datetime.utcnow()
-            needs_list.fulfilment_notes = fulfilment_notes
-            
-            # Clear draft fields on final approval
-            needs_list.draft_saved_by = None
-            needs_list.draft_saved_at = None
-            
-            # Release lock on completion
-            release_lock(needs_list, current_user)
-            
-            db.session.commit()
-            
-            flash(f"Needs list {needs_list.list_number} approved successfully. Ready for dispatch.", "success")
+            if editing_change_request_id:
+                # This is a resend after change request
+                adjustment_reason = request.form.get("adjustment_reason", "").strip()
+                
+                if not adjustment_reason:
+                    flash("Adjustment reason is required when updating fulfilment via change request.", "danger")
+                    return redirect(url_for("needs_list_prepare", list_id=list_id, change_request_id=editing_change_request_id))
+                
+                # Create after snapshot
+                updated_fulfilments = NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).all()
+                after_snapshot = {
+                    "items": [],
+                    "status": 'Resent for Dispatch',
+                    "fulfilment_notes": fulfilment_notes
+                }
+                for fulfilment in updated_fulfilments:
+                    after_snapshot["items"].append({
+                        "item_sku": fulfilment.item_sku,
+                        "source_hub_id": fulfilment.source_hub_id,
+                        "source_hub_name": fulfilment.source_hub.name,
+                        "allocated_qty": fulfilment.allocated_qty
+                    })
+                
+                # Get next version number
+                last_version = NeedsListFulfilmentVersion.query.filter_by(
+                    needs_list_id=needs_list.id
+                ).order_by(NeedsListFulfilmentVersion.version_number.desc()).first()
+                next_version = (last_version.version_number + 1) if last_version else 1
+                
+                # Create version record
+                version = NeedsListFulfilmentVersion(
+                    needs_list_id=needs_list.id,
+                    version_number=next_version,
+                    change_request_id=editing_change_request_id,
+                    adjusted_by_id=current_user.id,
+                    adjusted_at=datetime.utcnow(),
+                    adjustment_reason=adjustment_reason,
+                    fulfilment_snapshot_before=before_snapshot,
+                    fulfilment_snapshot_after=after_snapshot,
+                    status_before=before_snapshot.get('status', 'Approved'),
+                    status_after='Resent for Dispatch'
+                )
+                db.session.add(version)
+                
+                # Update change request status
+                change_request = FulfilmentChangeRequest.query.get(editing_change_request_id)
+                change_request.status = 'Approved & Resent'
+                
+                # Set needs list status to Resent for Dispatch
+                needs_list.status = 'Resent for Dispatch'
+                needs_list.approved_by = current_user.full_name
+                needs_list.approved_at = datetime.utcnow()
+                needs_list.fulfilment_notes = fulfilment_notes
+                
+                # Clear draft fields
+                needs_list.draft_saved_by = None
+                needs_list.draft_saved_at = None
+                
+                # Release lock
+                release_lock(needs_list, current_user)
+                
+                # Clear session data
+                session.pop('editing_change_request_id', None)
+                session.pop('fulfilment_before_snapshot', None)
+                
+                db.session.commit()
+                
+                # Notify warehouse users at the requesting hub
+                requesting_hub_id = change_request.requesting_hub_id
+                warehouse_users = User.query.filter(
+                    User.role.in_([ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]),
+                    User.assigned_location_id == requesting_hub_id
+                ).all()
+                
+                for user in warehouse_users:
+                    create_notification(
+                        user_id=user.id,
+                        title="Updated Fulfilment Received",
+                        message=f"Updated fulfilment for needs list {needs_list.list_number} has been resent. Review and dispatch as required.",
+                        notification_type="success",
+                        link_url=f"/needs-lists/{needs_list.id}",
+                        payload_data={
+                            "needs_list_number": needs_list.list_number,
+                            "updated_by": current_user.full_name,
+                            "adjustment_reason": adjustment_reason
+                        },
+                        needs_list_id=needs_list.id
+                    )
+                
+                flash(f"Fulfilment updated and resent to {change_request.requesting_hub.name}. Warehouse team has been notified.", "success")
+            else:
+                # Normal approval (not from change request)
+                needs_list.status = 'Approved'
+                
+                # Preserve Officer's preparation info if it exists, otherwise set Manager as preparer
+                if not needs_list.prepared_by or not needs_list.prepared_at:
+                    needs_list.prepared_by = current_user.full_name
+                    needs_list.prepared_at = datetime.utcnow()
+                
+                needs_list.approved_by = current_user.full_name
+                needs_list.approved_at = datetime.utcnow()
+                needs_list.fulfilment_notes = fulfilment_notes
+                
+                # Clear draft fields on final approval
+                needs_list.draft_saved_by = None
+                needs_list.draft_saved_at = None
+                
+                # Release lock on completion
+                release_lock(needs_list, current_user)
+                
+                db.session.commit()
+                
+                flash(f"Needs list {needs_list.list_number} approved successfully. Ready for dispatch.", "success")
         
         else:
             # Logistics Officer: Submit for manager approval (default action)
@@ -3315,6 +3411,43 @@ def needs_list_prepare(list_id):
         return redirect(url_for("needs_list_details", list_id=list_id))
     
     # GET request: Show fulfilment preparation form
+    # Check if this is triggered by a change request
+    change_request_id = request.args.get("change_request_id", type=int)
+    change_request = None
+    
+    if change_request_id:
+        change_request = FulfilmentChangeRequest.query.get_or_404(change_request_id)
+        
+        # Verify the change request belongs to this needs list
+        if change_request.needs_list_id != needs_list.id:
+            flash("Invalid change request.", "danger")
+            return redirect(url_for("needs_list_details", list_id=list_id))
+        
+        # Only Logistics Managers can edit via change request
+        if current_user.role != ROLE_LOGISTICS_MANAGER:
+            flash("Only Logistics Managers can edit fulfilments via change requests.", "danger")
+            return redirect(url_for("needs_list_details", list_id=list_id))
+        
+        # Capture before snapshot for versioning
+        existing_fulfilments_for_snapshot = NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).all()
+        before_snapshot = {
+            "items": [],
+            "status": needs_list.status,
+            "fulfilment_notes": needs_list.fulfilment_notes
+        }
+        for fulfilment in existing_fulfilments_for_snapshot:
+            before_snapshot["items"].append({
+                "item_sku": fulfilment.item_sku,
+                "source_hub_id": fulfilment.source_hub_id,
+                "source_hub_name": fulfilment.source_hub.name,
+                "allocated_qty": fulfilment.allocated_qty
+            })
+        
+        # Store before snapshot in session for later use
+        from flask import session
+        session['fulfilment_before_snapshot'] = before_snapshot
+        session['editing_change_request_id'] = change_request_id
+    
     # Attempt to acquire lock for editing
     success, message = acquire_lock(needs_list, current_user)
     
@@ -3346,7 +3479,8 @@ def needs_list_prepare(list_id):
                          stock_map=stock_map, 
                          odpem_hubs=odpem_hubs,
                          existing_allocations=existing_allocations,
-                         lock_status=lock_status)
+                         lock_status=lock_status,
+                         change_request=change_request)
 
 @app.route("/needs-lists/<int:list_id>/approve", methods=["POST"])
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER)
