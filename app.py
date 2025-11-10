@@ -427,6 +427,39 @@ def get_fulfillment_class(fulfillment_rate):
     else:
         return 'text-danger'
 
+
+def compute_dispatch_summary(needs_list):
+    """
+    Compute dispatch summary metrics for Dispatched/Received workflow states
+    
+    Args:
+        needs_list: NeedsList object with eager-loaded fulfilments and items
+        
+    Returns:
+        dict with keys:
+            - total_requested_qty: Sum of all requested quantities
+            - total_dispatched_qty: Sum of all dispatched quantities (from fulfilments)
+            - item_count: Number of distinct items in the needs list
+    """
+    total_requested_qty = 0
+    total_dispatched_qty = 0
+    
+    # Calculate totals from real backend data
+    for item_entry in needs_list.items:
+        total_requested_qty += item_entry.requested_qty
+        
+        # Sum allocated quantities from fulfilments for this item
+        # In Dispatched status, allocated_qty represents the actually dispatched quantity
+        for fulfilment in needs_list.fulfilments:
+            if fulfilment.item_sku == item_entry.item_sku:
+                total_dispatched_qty += fulfilment.allocated_qty
+    
+    return {
+        'total_requested_qty': total_requested_qty,
+        'total_dispatched_qty': total_dispatched_qty,
+        'item_count': len(needs_list.items)
+    }
+
 def prepare_completed_context(needs_list, current_user):
     """
     Prepare comprehensive context for completed needs list view
@@ -2302,6 +2335,11 @@ def needs_list_details(list_id):
     if needs_list.status == 'Completed':
         completed_context = prepare_completed_context(needs_list, current_user)
     
+    # Compute dispatch summary for Dispatched/Received views
+    dispatch_summary = None
+    if needs_list.status in ['Dispatched', 'Received']:
+        dispatch_summary = compute_dispatch_summary(needs_list)
+    
     # Compute per-item metrics and status for consistent display
     item_status_map = {}
     for item_entry in needs_list.items:
@@ -2331,6 +2369,7 @@ def needs_list_details(list_id):
                          stock_map=stock_map, 
                          main_hubs=main_hubs,
                          completed_context=completed_context,
+                         dispatch_summary=dispatch_summary,
                          item_status_map=item_status_map,
                          header_status=header_status)
 

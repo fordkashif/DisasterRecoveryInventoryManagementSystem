@@ -167,77 +167,23 @@
       
       <!-- Summary Panel -->
       <div class="row g-3 mb-3">
-        {% if needs_list.status in ['Dispatched', 'Received'] %}
-          {# EXECUTION PHASE: Show dispatch/delivery metrics #}
-          {% set dispatched_count = 0 %}
-          {% set full_delivery_count = 0 %}
-          {% set partial_count = 0 %}
-          {% set total_dispatched_qty = 0 %}
-          {% set total_requested_qty = 0 %}
-          {% for item_entry in needs_list.items %}
-            {% set item_dispatched = 0 %}
-            {% for fulfilment in needs_list.fulfilments %}
-              {% if fulfilment.item_sku == item_entry.item_sku %}
-                {% set item_dispatched = item_dispatched + fulfilment.allocated_qty %}
-              {% endif %}
-            {% endfor %}
-            {% set total_dispatched_qty = total_dispatched_qty + item_dispatched %}
-            {% set total_requested_qty = total_requested_qty + item_entry.requested_qty %}
-            {% if item_dispatched > 0 %}
-              {% set dispatched_count = dispatched_count + 1 %}
-            {% endif %}
-            {% if item_dispatched >= item_entry.requested_qty %}
-              {% set full_delivery_count = full_delivery_count + 1 %}
-            {% elif item_dispatched > 0 %}
-              {% set partial_count = partial_count + 1 %}
-            {% endif %}
-          {% endfor %}
-          
-          <div class="col-md-3">
+        {% if needs_list.status in ['Dispatched', 'Received'] and dispatch_summary %}
+          {# EXECUTION PHASE: Show dispatch metrics (backend-driven) #}
+          <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
               <div class="card-body p-3">
                 <div class="d-flex align-items-center">
                   <i class="bi bi-box-seam text-primary me-2" style="font-size: 1.5rem;"></i>
                   <div>
                     <small class="text-muted d-block">Total Dispatched</small>
-                    <strong class="{% if total_dispatched_qty >= total_requested_qty %}text-success{% elif total_dispatched_qty > 0 %}text-warning{% else %}text-danger{% endif %}">{{ total_dispatched_qty }}</strong>
-                    <small class="d-block text-muted">of {{ total_requested_qty }} units</small>
+                    <strong class="{% if dispatch_summary.total_dispatched_qty >= dispatch_summary.total_requested_qty %}text-success{% elif dispatch_summary.total_dispatched_qty > 0 %}text-warning{% else %}text-danger{% endif %}">{{ dispatch_summary.total_dispatched_qty }}</strong>
+                    <small class="d-block text-muted">of {{ dispatch_summary.total_requested_qty }} items</small>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-              <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                  <i class="bi bi-speedometer text-primary me-2" style="font-size: 1.5rem;"></i>
-                  <div>
-                    <small class="text-muted d-block">Fulfillment Rate</small>
-                    {% set fulfillment_rate = ((total_dispatched_qty / total_requested_qty * 100)|int) if total_requested_qty > 0 else 0 %}
-                    <strong class="{% if fulfillment_rate >= 100 %}text-success{% elif fulfillment_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">{{ fulfillment_rate }}%</strong>
-                    <small class="d-block text-muted">{{ needs_list.items|length }} items</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-              <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                  <i class="bi bi-exclamation-triangle text-warning me-2" style="font-size: 1.5rem;"></i>
-                  <div>
-                    <small class="text-muted d-block">Shortfall</small>
-                    {% set shortfall_qty = [total_requested_qty - total_dispatched_qty, 0]|max %}
-                    <strong class="{% if shortfall_qty == 0 %}text-success{% else %}text-warning{% endif %}">{{ shortfall_qty }}</strong>
-                    <small class="d-block text-muted">units outstanding</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
+          <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
               <div class="card-body p-3">
                 <div class="d-flex flex-column">
