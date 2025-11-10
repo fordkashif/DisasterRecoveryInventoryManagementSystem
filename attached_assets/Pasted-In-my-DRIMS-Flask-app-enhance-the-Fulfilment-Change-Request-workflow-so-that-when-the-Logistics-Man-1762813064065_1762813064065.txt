@@ -1,0 +1,62 @@
+In my DRIMS Flask app, enhance the Fulfilment Change Request workflow so that when the Logistics Manager receives a change request from a Sub-Hub Warehouse user, they can edit the approved fulfilment and resend the updated version to the respective Sub-Hub.
+
+Requirements:
+
+Receiving Fulfilment Change Requests:
+
+When a Fulfilment Change Request is submitted by a Warehouse user (Supervisor/Officer):
+
+The Logistics Manager should receive an in-app notification:
+
+“Fulfilment Change Request received from [Sub-Hub Name] for Needs List [ID].”
+
+The Logistics Manager can click the notification to open the relevant fulfilment record.
+
+Editing the Approved Fulfilment:
+
+Allow the Logistics Manager to open the existing approved fulfilment form in editable mode.
+
+They can adjust:
+
+Item quantities (Filled, Unfilled, or Reassigned)
+
+Source Hubs (if stock needs reallocation)
+
+Any notes or justifications provided by the Warehouse user.
+
+Include a “Comments” or “Reason for Adjustment” field that must be filled before resending.
+
+Resending to the Respective Sub-Hub:
+
+After the Logistics Manager makes the updates, add a “Resend to Sub-Hub” button.
+
+On clicking:
+
+The updated fulfilment is re-approved and sent back to the same Sub-Hub.
+
+Update the Needs List status to “Resent for Dispatch” or equivalent.
+
+Send an in-app notification to all Warehouse users at that Sub-Hub:
+
+“Updated fulfilment received from Logistics Manager for Needs List [ID]. Review and dispatch as required.”
+
+Record Keeping & Audit Trail:
+
+Log the update action with:
+
+The Logistics Manager’s name
+
+Timestamp (in EST, YYYY-MM-DD HH:MM format)
+
+Notes entered in the “Reason for Adjustment” field
+
+Maintain versioning for fulfilment data to track pre- and post-adjustment values.
+
+Permissions:
+
+Only the Logistics Manager can perform edits and resend approved fulfilments.
+
+Warehouse users can view the updated fulfilment but cannot modify it.
+
+Outcome:
+When a Warehouse user requests a fulfilment change, the Logistics Manager can seamlessly review, adjust, and resend the updated fulfilment to the respective Sub-Hub, ensuring efficient coordination, transparency, and accurate version control.

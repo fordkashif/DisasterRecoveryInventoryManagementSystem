@@ -291,6 +291,8 @@ class NeedsList(db.Model):
     locked_by_user = db.relationship("User", foreign_keys=[locked_by_id])  # User holding the edit lock
     items = db.relationship("NeedsListItem", back_populates="needs_list", cascade="all, delete-orphan")
     fulfilments = db.relationship("NeedsListFulfilment", back_populates="needs_list", cascade="all, delete-orphan")
+    change_requests = db.relationship("FulfilmentChangeRequest", back_populates="needs_list", cascade="all, delete-orphan")
+    fulfilment_versions = db.relationship("NeedsListFulfilmentVersion", back_populates="needs_list", cascade="all, delete-orphan")
 
 class NeedsListItem(db.Model):
     """Items requested in an agency/sub hub's needs list"""
@@ -331,17 +333,44 @@ class FulfilmentChangeRequest(db.Model):
     requesting_hub_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=False)  # Sub-Hub where request originates
     requested_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)  # Warehouse Supervisor/Officer
     request_comments = db.Column(db.Text, nullable=False)  # Why change is needed
-    status = db.Column(db.String(50), nullable=False, default="Pending Review")  # Pending Review, Approved & Updated, Rejected, Clarification Needed
+    status = db.Column(db.String(50), nullable=False, default="Pending Review")  # Pending Review, In Progress, Approved & Resent, Rejected, Clarification Needed
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     reviewed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Logistics Officer/Manager who processed
     reviewed_at = db.Column(db.DateTime, nullable=True)
     review_comments = db.Column(db.Text, nullable=True)  # Logistics team response
     
-    needs_list = db.relationship("NeedsList")
+    needs_list = db.relationship("NeedsList", back_populates="change_requests")
     requesting_hub = db.relationship("Depot", foreign_keys=[requesting_hub_id])
     requested_by = db.relationship("User", foreign_keys=[requested_by_id])
     reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
+
+class NeedsListFulfilmentVersion(db.Model):
+    """Audit trail for fulfilment adjustments with before/after snapshots"""
+    __tablename__ = 'needs_list_fulfilment_version'
+    __table_args__ = (
+        db.UniqueConstraint('needs_list_id', 'version_number', name='uq_needs_list_version'),
+        db.Index('idx_version_needs_list', 'needs_list_id'),
+        db.Index('idx_version_change_request', 'change_request_id'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True)
+    needs_list_id = db.Column(db.Integer, db.ForeignKey("needs_list.id"), nullable=False)
+    version_number = db.Column(db.Integer, nullable=False)  # Sequential version per needs_list
+    change_request_id = db.Column(db.Integer, db.ForeignKey("fulfilment_change_request.id"), nullable=True)  # Nullable for proactive adjustments
+    
+    adjusted_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    adjusted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    adjustment_reason = db.Column(db.Text, nullable=False)
+    
+    fulfilment_snapshot_before = db.Column(db.JSON, nullable=False)  # Before state
+    fulfilment_snapshot_after = db.Column(db.JSON, nullable=False)  # After state
+    status_before = db.Column(db.String(50), nullable=False)  # Needs list status before
+    status_after = db.Column(db.String(50), nullable=False)  # Needs list status after
+    
+    needs_list = db.relationship("NeedsList", back_populates="fulfilment_versions")
+    change_request = db.relationship("FulfilmentChangeRequest")
+    adjusted_by = db.relationship("User", lazy='joined')
 
 # ---------- Flask-Login Configuration ----------
 login_manager = LoginManager()
@@ -3767,11 +3796,21 @@ def fulfilment_change_request_process(request_id):
         return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
     
     if action == "approve":
-        change_request.status = 'Approved & Updated'
-        flash_message = "Change request approved. Please update the fulfilment as needed."
-        notification_title = "Fulfilment Change Request Approved"
-        notification_message = f"Your change request for needs list {change_request.needs_list.list_number} has been approved."
-        notification_type = "success"
+        # Only Logistics Managers can edit and resend fulfilments
+        if current_user.role != ROLE_LOGISTICS_MANAGER:
+            flash("Only Logistics Managers can approve and update fulfilments. Please escalate to a Manager.", "warning")
+            return redirect(url_for("needs_list_details", list_id=change_request.needs_list_id))
+        
+        # For approve action, redirect to edit fulfilment instead of just marking as approved
+        change_request.review_comments = review_comments
+        change_request.reviewed_by_id = current_user.id
+        change_request.reviewed_at = datetime.utcnow()
+        change_request.status = 'In Progress'
+        db.session.commit()
+        
+        flash("Redirecting to edit fulfilment. Please adjust allocations and approve to resend to Sub-Hub.", "info")
+        return redirect(url_for("needs_list_prepare", list_id=change_request.needs_list_id, change_request_id=change_request.id))
+    
     elif action == "reject":
         change_request.status = 'Rejected'
         flash_message = "Change request rejected."
