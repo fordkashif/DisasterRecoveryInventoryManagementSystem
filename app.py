@@ -1178,8 +1178,9 @@ def can_dispatch_from_hub(user, needs_list, source_hub_id=None):
     Returns:
         tuple: (allowed: bool, error_message: str or None)
     """
-    # Status validation: Allow dispatch for Approved or later stages
-    valid_statuses = ['Approved', 'Resent for Dispatch', 'Dispatched', 'Received', 'Completed']
+    # Status validation: Allow dispatch only for Approved and Resent for Dispatch
+    # Do not allow re-dispatch of already dispatched items
+    valid_statuses = ['Approved', 'Resent for Dispatch']
     if needs_list.status not in valid_statuses:
         return (False, f"Cannot dispatch items for needs lists with status '{needs_list.status}'.")
     
@@ -3253,7 +3254,7 @@ def needs_list_details(list_id):
     
     # Check if current user can dispatch this needs list (for hub users and admins)
     can_dispatch = False
-    if needs_list.status == 'Approved':
+    if needs_list.status in ['Approved', 'Resent for Dispatch']:
         # Use the new can_dispatch_from_hub helper which includes all operational roles
         can_dispatch, _ = can_dispatch_from_hub(current_user, needs_list)
     
