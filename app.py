@@ -112,18 +112,97 @@ class TransferRequest(db.Model):
     requester = db.relationship("User", foreign_keys=[requested_by])
     reviewer = db.relationship("User", foreign_keys=[reviewed_by])
 
-class User(UserMixin, db.Model):
+class Role(db.Model):
+    """Roles table for normalized role management"""
+    __tablename__ = 'role'
+    
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(200), unique=True, nullable=False, index=True)
-    full_name = db.Column(db.String(200), nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(50), nullable=False)  # WAREHOUSE_STAFF, FIELD_PERSONNEL, LOGISTICS_OFFICER, LOGISTICS_MANAGER, EXECUTIVE, ADMIN, AUDITOR
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    assigned_location_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)  # For warehouse staff
-    last_login_at = db.Column(db.DateTime, nullable=True)
+    code = db.Column(db.String(50), unique=True, nullable=False, index=True)  # e.g., LOGISTICS_MANAGER
+    name = db.Column(db.String(100), nullable=False)  # Display name
+    description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
-    assigned_location = db.relationship("Depot")
+    users = db.relationship('UserRole', back_populates='role', cascade='all, delete-orphan')
+
+
+class UserRole(db.Model):
+    """Many-to-many relationship between users and roles"""
+    __tablename__ = 'user_role'
+    __table_args__ = (
+        db.PrimaryKeyConstraint('user_id', 'role_id'),
+    )
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    assigned_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    user = db.relationship('User', foreign_keys=[user_id], back_populates='user_roles')
+    role = db.relationship('Role', back_populates='users')
+    assigner = db.relationship('User', foreign_keys=[assigned_by])
+
+
+class UserHub(db.Model):
+    """Many-to-many relationship between users and hubs for scoping access"""
+    __tablename__ = 'user_hub'
+    __table_args__ = (
+        db.PrimaryKeyConstraint('user_id', 'hub_id'),
+    )
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    hub_id = db.Column(db.Integer, db.ForeignKey('location.id', ondelete='CASCADE'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    assigned_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    user = db.relationship('User', foreign_keys=[user_id], back_populates='user_hubs')
+    hub = db.relationship('Depot')
+    assigner = db.relationship('User', foreign_keys=[assigned_by])
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'user'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Authentication fields
+    email = db.Column(db.String(200), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    
+    # Name fields - NEW SCHEMA
+    first_name = db.Column(db.String(100), nullable=True)  # Nullable during migration
+    last_name = db.Column(db.String(100), nullable=True)  # Nullable during migration
+    
+    # Legacy field - kept for backwards compatibility during migration
+    full_name = db.Column(db.String(200), nullable=True)
+    
+    # Legacy role field - kept for backwards compatibility during migration
+    role = db.Column(db.String(50), nullable=True)
+    
+    # Status and profile fields
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    organization = db.Column(db.String(200), nullable=True)
+    job_title = db.Column(db.String(200), nullable=True)
+    phone = db.Column(db.String(50), nullable=True)
+    timezone = db.Column(db.String(50), default='America/Jamaica', nullable=False)  # EST/GMT-5
+    language = db.Column(db.String(10), default='en', nullable=False)
+    notification_preferences = db.Column(db.Text, nullable=True)  # JSON string
+    
+    # Legacy location field - kept for backwards compatibility during migration
+    assigned_location_id = db.Column(db.Integer, db.ForeignKey("location.id"), nullable=True)
+    
+    # Audit fields
+    last_login_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    # Relationships
+    user_roles = db.relationship('UserRole', foreign_keys='UserRole.user_id', back_populates='user', cascade='all, delete-orphan')
+    user_hubs = db.relationship('UserHub', foreign_keys='UserHub.user_id', back_populates='user', cascade='all, delete-orphan')
+    assigned_location = db.relationship("Depot", foreign_keys=[assigned_location_id])  # Legacy
+    creator = db.relationship('User', foreign_keys=[created_by_id], remote_side='User.id')
+    updater = db.relationship('User', foreign_keys=[updated_by_id], remote_side='User.id')
     
     def set_password(self, password):
         """Hash and set the user's password"""
@@ -136,6 +215,37 @@ class User(UserMixin, db.Model):
     def get_id(self):
         """Required by Flask-Login"""
         return str(self.id)
+    
+    @property
+    def display_name(self):
+        """Get display name from first_name and last_name, fallback to full_name"""
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        elif self.full_name:
+            return self.full_name
+        return self.email
+    
+    @property
+    def roles(self):
+        """Get list of role codes assigned to this user"""
+        return [ur.role.code for ur in self.user_roles]
+    
+    @property
+    def hubs(self):
+        """Get list of hubs assigned to this user"""
+        return [uh.hub for uh in self.user_hubs]
+    
+    def has_role(self, role_code):
+        """Check if user has a specific role"""
+        return role_code in self.roles
+    
+    def has_any_role(self, *role_codes):
+        """Check if user has any of the specified roles"""
+        return any(role_code in self.roles for role_code in role_codes)
+    
+    def has_hub_access(self, hub_id):
+        """Check if user has access to a specific hub"""
+        return any(uh.hub_id == hub_id for uh in self.user_hubs)
 
 class Notification(db.Model):
     """In-app notifications for Agency Hub users to track workflow updates"""
@@ -424,7 +534,7 @@ def is_safe_url(target):
     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
 def role_required(*allowed_roles):
-    """Decorator to restrict access to specific roles"""
+    """Decorator to restrict access to specific roles - supports new role structure"""
     def decorator(f):
         @wraps(f)
         @login_required
@@ -432,9 +542,19 @@ def role_required(*allowed_roles):
             if not current_user.is_authenticated:
                 flash("Please log in to access this page.", "warning")
                 return redirect(url_for("login"))
-            if current_user.role not in allowed_roles:
+            
+            # Check new role structure (user_roles many-to-many)
+            user_roles = current_user.roles  # This is a list of role codes
+            has_permission = any(role in allowed_roles for role in user_roles)
+            
+            # Backwards compatibility: check legacy role field if new structure empty
+            if not user_roles and current_user.role:
+                has_permission = current_user.role in allowed_roles
+            
+            if not has_permission:
                 flash("You don't have permission to access this page.", "danger")
                 return redirect(url_for("dashboard"))
+            
             return f(*args, **kwargs)
         return decorated_function
     return decorator
