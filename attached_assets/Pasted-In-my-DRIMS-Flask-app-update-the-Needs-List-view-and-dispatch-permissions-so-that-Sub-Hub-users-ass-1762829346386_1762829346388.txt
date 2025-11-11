@@ -1,0 +1,68 @@
+In my DRIMS Flask app, update the Needs List view and dispatch permissions so that Sub-Hub users assigned to a Hub can properly review and dispatch goods for Needs Lists relevant to their Hub.
+
+Implement the following rules:
+
+Role & Hub-based access to Needs Lists:
+
+Allow access to view and work on a Needs List if at least one of these is true:
+
+The user is System Administrator (full access).
+
+The user is Logistics Manager or Logistics Officer (can view all Needs Lists).
+
+The user is Main Hub User and:
+
+Their Hub is selected as a source hub in the fulfilment/dispatch for that Needs List, OR
+
+The Needs List was submitted to their Main Hub.
+
+The user is Sub-Hub User and:
+
+Their Sub-Hub is the requesting hub for that Needs List, OR
+
+Their Sub-Hub has been assigned as a source hub for dispatch after approval.
+
+The user is Agency Hub User and:
+
+Their Agency is the requesting hub for that Needs List (view only their own Needs Lists and statuses).
+
+Specific fix for Warehouse Supervisor (Montego Bay):
+
+User Rick James (ID 11) is a Sub-Hub User at Montego Bay (SUB).
+
+Ensure he can:
+
+View Needs Lists created by Montego Bay Sub-Hub.
+
+View and perform the Dispatch/Issue actions when Montego Bay is assigned as a source hub in an approved fulfilment.
+
+He must not see Needs Lists for other hubs.
+
+Technical adjustments:
+
+In the route/controller that loads a Needs List (e.g. /needs-lists/<id>, /needs-lists/<id>/prepare, /needs-lists/<id>/dispatch), replace any hard-coded checks like:
+
+“only Logistics Manager / Main Hub can view”
+
+“only origin hub = Main Hub”
+with the role-and-hub rules listed above.
+
+Base the permission check on:
+
+current_user.role
+
+current_user.hub_id or Location
+
+needs_list.requesting_hub_id
+
+any source_hub_id / allocation mapping used in fulfilment.
+
+Error handling:
+
+If a user does not meet any of the allowed conditions, show:
+
+"You don't have permission to view this needs list."
+
+If they do meet them (like Rick James for Montego Bay), they must be allowed through to view/dispatch.
+
+Apply these changes so that Sub-Hub Users (including the Montego Bay Warehouse Supervisor) can correctly access Needs Lists tied to their hub, without exposing data from unrelated hubs or agencies.
