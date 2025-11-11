@@ -662,10 +662,30 @@ def get_dashboard_context(user):
     ]
     
     primary_role = None
+    
+    # Check new role structure (user_roles many-to-many)
     for role in role_priority:
         if user.has_role(role):
             primary_role = role
             break
+    
+    # Backwards compatibility: check legacy role field if new structure empty
+    if not primary_role and user.role:
+        # Map legacy roles to modern equivalents
+        legacy_role_mapping = {
+            'WAREHOUSE_SUPERVISOR': ROLE_SUB_HUB_USER,
+            'WAREHOUSE_OFFICER': ROLE_MAIN_HUB_USER,
+            'WAREHOUSE_STAFF': ROLE_INVENTORY_CLERK,
+            'FIELD_PERSONNEL': ROLE_AGENCY_HUB_USER,
+            'EXECUTIVE': ROLE_AUDITOR
+        }
+        
+        # Try direct match first (for roles that exist in both systems)
+        if user.role in role_priority:
+            primary_role = user.role
+        # Then try legacy mapping
+        elif user.role in legacy_role_mapping:
+            primary_role = legacy_role_mapping[user.role]
     
     # Route to appropriate dashboard builder
     if primary_role == ROLE_LOGISTICS_MANAGER:
@@ -1950,9 +1970,6 @@ def record_package_status_change(package, old_status, new_status, changed_by, no
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        # Redirect Sub-Hub users to their dedicated dashboard
-        if current_user.has_role(ROLE_SUB_HUB_USER):
-            return redirect(url_for("warehouse_dashboard"))
         return redirect(url_for("dashboard"))
     
     if request.method == "POST":
@@ -1981,10 +1998,6 @@ def login():
             if next_page and is_safe_url(next_page):
                 return redirect(next_page)
             
-            # Redirect Sub-Hub users to their dedicated dashboard
-            if user.has_role(ROLE_SUB_HUB_USER):
-                return redirect(url_for("warehouse_dashboard"))
-            
             return redirect(url_for("dashboard"))
         else:
             flash("Invalid email or password.", "danger")
@@ -2003,312 +2016,41 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
-    from datetime import datetime, timedelta
+    """
+    Role-based dashboard route.
+    Uses get_dashboard_context() to build role-specific views.
+    """
+    # Get role-specific dashboard context
+    ctx = get_dashboard_context(current_user)
     
-    # Redirect Sub-Hub users to dedicated warehouse dashboard
-    if current_user.has_role(ROLE_SUB_HUB_USER):
-        return redirect(url_for("warehouse_dashboard"))
+    # Handle error conditions
+    if 'error' in ctx:
+        flash(ctx['error'], "danger")
+        return redirect(url_for("login"))
     
-    # Block Agency hub users from accessing dashboard
-    if current_user.assigned_location and current_user.assigned_location.hub_type == 'AGENCY':
-        flash("This page is not available for Agency hub users.", "warning")
-        return redirect(url_for("needs_lists"))
+    # Route to role-specific template
+    template_name = ctx.get('template', 'basic')
     
-    # KPIs - Inventory
-    total_items = Item.query.count()
-    # Exclude AGENCY hubs from overall inventory displays
-    locations = Depot.query.filter(Depot.hub_type != 'AGENCY').order_by(Depot.name.asc()).all()
-    
-    # KPIs - Operations
-    total_donors = Donor.query.count()
-    total_beneficiaries = Beneficiary.query.count()
-    active_events = DisasterEvent.query.filter_by(status="Active").count()
-    total_events = DisasterEvent.query.count()
-    
-    # Transaction volumes
-    total_intakes = Transaction.query.filter_by(ttype="IN").count()
-    total_distributions = Transaction.query.filter_by(ttype="OUT").count()
-    
-    # Recent activity (last 30 days)
-    thirty_days_ago = datetime.now() - timedelta(days=30)
-    recent_intakes = Transaction.query.filter(
-        Transaction.ttype == "IN",
-        Transaction.created_at >= thirty_days_ago
-    ).count()
-    recent_distributions = Transaction.query.filter(
-        Transaction.ttype == "OUT",
-        Transaction.created_at >= thirty_days_ago
-    ).count()
-    
-    # Stock by location
-    stock_by_location = {}
-    for loc in locations:
-        stock_total = db.session.query(
-            func.sum(case((Transaction.ttype == "IN", Transaction.qty), else_=-Transaction.qty))
-        ).filter(Transaction.location_id == loc.id).scalar()
-        stock_by_location[loc.id] = stock_total or 0
-    
-    total_in_stock = sum(stock_by_location.values())
-    
-    # Low stock items (by location)
-    low = []
-    stock_map = get_stock_by_location()
-    items = Item.query.all()
-    
-    for item in items:
-        for loc in locations:
-            stock = stock_map.get((item.sku, loc.id), 0)
-            if item.min_qty and stock < item.min_qty and stock >= 0:
-                low.append((item, loc, stock))
-    
-    low.sort(key=lambda x: x[2])  # Sort by stock level
-    
-    # Provide sliced and full data for low stock (for mobile responsiveness)
-    PREVIEW_LIMIT = 5
-    low_stock_preview = low[:PREVIEW_LIMIT]
-    low_stock_full = low
-
-    # Inventory by category
-    stock_by_category = {}
-    for item in items:
-        category = item.category or "Uncategorized"
-        total_stock = sum(stock_map.get((item.sku, loc.id), 0) for loc in locations)
-        if category not in stock_by_category:
-            stock_by_category[category] = {"items": [], "total_units": 0}
-        stock_by_category[category]["items"].append({
-            "name": item.name,
-            "stock": total_stock,
-            "unit": item.unit
-        })
-        stock_by_category[category]["total_units"] += total_stock
-    
-    # Sort categories by name
-    sorted_categories = sorted(stock_by_category.items())
-    stock_by_category_preview = sorted_categories[:PREVIEW_LIMIT]
-    stock_by_category_full = sorted_categories
-    
-    # Provide sliced data for locations (for mobile responsiveness)
-    locations_preview = locations[:PREVIEW_LIMIT]
-    locations_full = locations
-    
-    # Activity by event - get all events first
-    event_stats_all = db.session.query(
-        DisasterEvent.name,
-        DisasterEvent.event_type,
-        func.sum(case((Transaction.ttype == "IN", Transaction.qty), else_=0)).label("total_intake"),
-        func.sum(case((Transaction.ttype == "OUT", Transaction.qty), else_=0)).label("total_distribution")
-    ).join(Transaction, DisasterEvent.id == Transaction.event_id, isouter=False)\
-     .group_by(DisasterEvent.id, DisasterEvent.name, DisasterEvent.event_type)\
-     .order_by(DisasterEvent.id.desc())\
-     .all()
-    
-    event_stats_preview = event_stats_all[:PREVIEW_LIMIT]
-    event_stats_full = event_stats_all
-    
-    # Expiring items (from transactions with expiry dates within next 30 days)
-    from datetime import date, timedelta
-    today = date.today()
-    thirty_days = today + timedelta(days=30)
-    expiring_transactions_query = Transaction.query.filter(
-        Transaction.ttype == "IN",
-        Transaction.expiry_date.isnot(None),
-        Transaction.expiry_date <= thirty_days,
-        Transaction.expiry_date >= today
-    ).order_by(Transaction.expiry_date.asc()).all()
-    
-    # Calculate days remaining for each expiring batch
-    expiring_items_all = []
-    for tx in expiring_transactions_query:
-        days_remaining = (tx.expiry_date - today).days
-        expiring_items_all.append({
-            'item': tx.item,
-            'transaction': tx,
-            'days_remaining': days_remaining,
-            'urgency': 'critical' if days_remaining <= 7 else 'warning' if days_remaining <= 14 else 'normal'
-        })
-    
-    expiring_items_preview = expiring_items_all[:PREVIEW_LIMIT]
-    expiring_items_full = expiring_items_all
-    
-    # Recent transactions
-    recent_all = Transaction.query.order_by(Transaction.created_at.desc()).limit(50).all()
-    recent_preview = recent_all[:PREVIEW_LIMIT]
-    recent_full = recent_all
-    
-    # Pending needs lists (for logistics staff and admins)
-    pending_needs_lists = []
-    if current_user.has_any_role(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER):
-        pending_needs_lists = DistributionPackage.query.filter_by(status="Draft")\
-                                                       .order_by(DistributionPackage.created_at.asc()).all()
-    
-    # Hubs by type (for chart)
-    hubs_by_type = {}
-    all_hubs = Depot.query.all()
-    for hub in all_hubs:
-        hub_type = hub.hub_type or "Other"
-        hubs_by_type[hub_type] = hubs_by_type.get(hub_type, 0) + 1
-    
-    # Category data for chart (top 5)
-    category_labels = []
-    category_data = []
-    for category, stats in sorted_categories[:5]:
-        category_labels.append(category if len(category) <= 15 else category[:12] + "...")
-        category_data.append(stats['total_units'])
-    
-    # Needs Lists stats
-    # TODO: Create centralized NeedsListStatus enum to prevent status string inconsistencies
-    needs_lists_draft = NeedsList.query.filter_by(status='Draft').count()
-    needs_lists_submitted = NeedsList.query.filter_by(status='Submitted').count()
-    needs_lists_awaiting = NeedsList.query.filter(
-        NeedsList.status.in_(['Awaiting Approval', 'Fulfilment Prepared'])
-    ).count()
-    needs_lists_completed = NeedsList.query.filter_by(status='Completed').count()
-    
-    needs_lists_stats = {
-        'pending': needs_lists_submitted + needs_lists_awaiting,
-        'in_progress': needs_lists_awaiting,
-        'completed': needs_lists_completed
-    }
-    
-    needs_lists_chart_data = {
-        'Draft': needs_lists_draft,
-        'Submitted': needs_lists_submitted,
-        'In Progress': needs_lists_awaiting,
-        'Completed': needs_lists_completed
-    }
-    
-    # Total distributors (this was being queried but not used)
-    total_distributors = Depot.query.filter_by(hub_type='AGENCY').count()
-    
-    # Fulfillment progress over last 7 days
-    fulfillment_labels = []
-    fulfillment_data = []
-    for i in range(6, -1, -1):  # Last 7 days in chronological order
-        day = today - timedelta(days=i)
-        day_start = datetime.combine(day, datetime.min.time())
-        day_end = datetime.combine(day, datetime.max.time())
-        
-        # Count needs lists completed on this day
-        completed_count = NeedsList.query.filter(
-            NeedsList.status == 'Completed',
-            NeedsList.fulfilled_at >= day_start,
-            NeedsList.fulfilled_at <= day_end
-        ).count()
-        
-        fulfillment_labels.append(day.strftime("%b %d"))
-        fulfillment_data.append(completed_count)
-    
-    return render_template("dashboard.html",
-                           total_items=total_items,
-                           total_in_stock=total_in_stock,
-                           low_stock_preview=low_stock_preview,
-                           low_stock_full=low_stock_full,
-                           recent_preview=recent_preview,
-                           recent_full=recent_full,
-                           locations_preview=locations_preview,
-                           locations_full=locations_full,
-                           stock_by_location=stock_by_location,
-                           stock_by_category_preview=stock_by_category_preview,
-                           stock_by_category_full=stock_by_category_full,
-                           total_donors=total_donors,
-                           total_beneficiaries=total_beneficiaries,
-                           active_events=active_events,
-                           total_events=total_events,
-                           total_intakes=total_intakes,
-                           total_distributions=total_distributions,
-                           recent_intakes=recent_intakes,
-                           recent_distributions=recent_distributions,
-                           event_stats_preview=event_stats_preview,
-                           event_stats_full=event_stats_full,
-                           expiring_items_preview=expiring_items_preview,
-                           expiring_items_full=expiring_items_full,
-                           pending_needs_lists=pending_needs_lists,
-                           total_distributors=total_distributors,
-                           hubs_by_type=hubs_by_type,
-                           category_labels=category_labels,
-                           category_data=category_data,
-                           needs_lists_stats=needs_lists_stats,
-                           needs_lists_chart_data=needs_lists_chart_data,
-                           fulfillment_labels=fulfillment_labels,
-                           fulfillment_data=fulfillment_data)
+    if template_name == 'logistics_manager':
+        return render_template("dashboard_logistics_manager.html", **ctx)
+    elif template_name == 'logistics_officer':
+        return render_template("dashboard_logistics_officer.html", **ctx)
+    elif template_name == 'main_hub':
+        return render_template("dashboard_main_hub.html", **ctx)
+    elif template_name == 'sub_hub':
+        return render_template("dashboard_sub_hub.html", **ctx)
+    else:
+        # Fallback to basic dashboard
+        return render_template("dashboard_basic.html", **ctx)
 
 @app.route("/warehouse-dashboard")
 @role_required(ROLE_ADMIN, ROLE_SUB_HUB_USER)
 def warehouse_dashboard():
-    """Dedicated dashboard for Sub-Hub users"""
-    from datetime import datetime, timedelta
-    
-    # Ensure user is assigned to a hub
-    if not current_user.assigned_location_id:
-        flash("You must be assigned to a hub to access the warehouse dashboard.", "danger")
-        return redirect(url_for("login"))
-    
-    assigned_hub = Depot.query.get(current_user.assigned_location_id)
-    if not assigned_hub or assigned_hub.hub_type != 'SUB':
-        flash("Warehouse dashboard is only available for Sub-Hub assignments.", "danger")
-        return redirect(url_for("login"))
-    
-    # Ready-to-Dispatch Queue: Approved needs lists with fulfilments from assigned hub
-    ready_to_dispatch = db.session.query(NeedsList).join(
-        NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
-    ).filter(
-        NeedsList.status == 'Approved',
-        NeedsListFulfilment.source_hub_id == assigned_hub.id
-    ).distinct().order_by(NeedsList.approved_at.desc()).all()
-    
-    # Recent Dispatch Activity (last 14 days)
-    fourteen_days_ago = datetime.utcnow() - timedelta(days=14)
-    recent_dispatches = db.session.query(NeedsList).join(
-        NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
-    ).filter(
-        NeedsList.status == 'Dispatched',
-        NeedsList.dispatched_at >= fourteen_days_ago,
-        NeedsListFulfilment.source_hub_id == assigned_hub.id
-    ).distinct().order_by(NeedsList.dispatched_at.desc()).all()
-    
-    # Hub stock snapshot
-    stock_map = get_stock_by_location()
-    items = Item.query.order_by(Item.name).all()
-    hub_stock = []
-    total_stock_value = 0
-    low_stock_count = 0
-    
-    for item in items:
-        stock = stock_map.get((item.sku, assigned_hub.id), 0)
-        if stock > 0:
-            is_low = stock < (item.min_qty or 10)
-            if is_low:
-                low_stock_count += 1
-            hub_stock.append({
-                'item': item,
-                'stock': stock,
-                'is_low': is_low
-            })
-            total_stock_value += stock
-    
-    # KPIs
-    pending_count = len(ready_to_dispatch)
-    
-    # Dispatches this month
-    now = datetime.utcnow()
-    month_start = datetime(now.year, now.month, 1)
-    dispatches_this_month = db.session.query(NeedsList).join(
-        NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
-    ).filter(
-        NeedsList.status.in_(['Dispatched', 'Received', 'Completed']),
-        NeedsList.dispatched_at >= month_start,
-        NeedsListFulfilment.source_hub_id == assigned_hub.id
-    ).distinct().count()
-    
-    return render_template("warehouse_dashboard.html",
-                         assigned_hub=assigned_hub,
-                         ready_to_dispatch=ready_to_dispatch,
-                         recent_dispatches=recent_dispatches,
-                         hub_stock=hub_stock[:20],  # Show top 20 items
-                         pending_count=pending_count,
-                         total_stock_value=total_stock_value,
-                         low_stock_count=low_stock_count,
-                         dispatches_this_month=dispatches_this_month)
+    """
+    Legacy warehouse dashboard route - now redirects to main dashboard.
+    Kept for backward compatibility.
+    """
+    return redirect(url_for("dashboard"))
 
 @app.route("/items")
 @role_required(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_INVENTORY_CLERK, ROLE_SUB_HUB_USER, ROLE_MAIN_HUB_USER, ROLE_AUDITOR)
@@ -2334,12 +2076,12 @@ def items():
     if current_user.has_role(ROLE_SUB_HUB_USER):
         if not current_user.assigned_location_id:
             flash("You must be assigned to a hub to view inventory.", "danger")
-            return redirect(url_for("warehouse_dashboard"))
+            return redirect(url_for("dashboard"))
         
         assigned_hub = Depot.query.get(current_user.assigned_location_id)
         if not assigned_hub or assigned_hub.hub_type != 'SUB':
             flash("Inventory access is only available for Sub-Hub assignments.", "danger")
-            return redirect(url_for("warehouse_dashboard"))
+            return redirect(url_for("dashboard"))
         
         # Sub-Hub users can only see their assigned hub
         locations = [assigned_hub]
