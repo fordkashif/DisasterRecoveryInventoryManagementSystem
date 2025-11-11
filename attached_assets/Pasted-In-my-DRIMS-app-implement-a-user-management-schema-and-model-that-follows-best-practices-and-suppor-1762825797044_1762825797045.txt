@@ -1,0 +1,65 @@
+In my DRIMS app, implement a user management schema and model that follows best practices and supports our existing roles and hub-based permissions.
+
+1. User Table
+Create a users table/model with the following fields:
+
+id (UUID, primary key)
+
+first_name (required)
+
+last_name (required)
+
+full_name (stored or computed as first_name + ' ' + last_name)
+
+email (required, unique, used for login)
+
+password_hash (required, never store plain text passwords)
+
+is_active (bool, default true, for soft delete / suspension)
+
+organization (e.g. ODPEM, NGO name)
+
+job_title (optional)
+
+phone (optional)
+
+timezone (default EST/GMT-5 or compatible identifier)
+
+language (default en)
+
+notification_preferences (JSON for in-app/email preferences, optional)
+
+created_at, updated_at (timestamps)
+
+created_by, updated_by (FK to users.id for audit)
+
+2. Roles
+Create a roles table and a user_roles join table so a user can have one or more roles.
+
+roles fields: id, code (e.g. LOGISTICS_MANAGER), name, description.
+
+user_roles fields: user_id, role_id (composite PK).
+Seed roles including: ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER, WAREHOUSE_SUPERVISOR, WAREHOUSE_OFFICER, MAIN_HUB_USER, SUB_HUB_USER, AGENCY_USER, AUDITOR.
+
+3. Hub Scoping
+Ensure user-to-hub relationships are normalized:
+
+Reuse existing hubs table (id, name, hub_type = MAIN_HUB / SUB_HUB / AGENCY, etc.).
+
+Add a user_hubs table with (user_id, hub_id) so:
+
+Warehouse users are scoped to their Sub-Hub.
+
+Agency users are scoped to their Agency Hub.
+
+Logistics roles may be global or linked to multiple hubs as needed.
+
+4. Implementation Notes
+
+All authentication and authorization must use users, user_roles, and user_hubs to enforce least-privilege access.
+
+Use separate first and last names everywhere in the code; full_name is for display only.
+
+Apply this schema consistently across user creation, editing, listing, and audit logs.
+
+Update the migrations/models accordingly and refactor any hard-coded role or hub fields to rely on this new standardized structure.
