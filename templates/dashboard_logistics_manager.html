@@ -165,7 +165,7 @@
               </thead>
               <tbody>
                 {% for hub in hub_overview %}
-                <tr class="hub-row" style="cursor: pointer;" onclick="window.location.href='{{ url_for('depot_inventory', depot_id=hub.id) }}'">
+                <tr class="hub-row" style="cursor: pointer;" onclick="window.location.href='{{ url_for('depot_inventory', location_id=hub.id) }}'">
                   <td class="py-2 px-3 fw-medium">{{ hub.name }}</td>
                   <td class="py-2 px-3">
                     {% if hub.hub_type == 'MAIN' %}
