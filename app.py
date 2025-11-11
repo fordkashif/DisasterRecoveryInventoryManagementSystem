@@ -378,9 +378,6 @@ class NeedsList(db.Model):
     received_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Agency user who confirmed receipt
     received_at = db.Column(db.DateTime, nullable=True)  # When receipt was confirmed
     receipt_notes = db.Column(db.Text, nullable=True)  # Notes from agency on receipt
-    receipt_confirmed = db.Column(db.Boolean, default=False, nullable=False)  # Whether receipt has been confirmed
-    receipt_confirmed_at = db.Column(db.DateTime, nullable=True)  # When receipt was confirmed (timestamp for auditing)
-    receipt_confirmed_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # User who confirmed receipt
     
     # Fulfilment completion tracking
     fulfilled_at = db.Column(db.DateTime, nullable=True)
@@ -486,27 +483,40 @@ class NeedsListFulfilmentVersion(db.Model):
     adjusted_by = db.relationship("User", lazy='joined')
 
 class FulfilmentEditLog(db.Model):
-    """Audit trail for post-completion fulfilment edits (after receipt confirmation)"""
+    """Audit trail for post-completion fulfilment edits (after receipt confirmation)
+    
+    This model tracks corrections to completed needs lists made by Logistics staff
+    after the requesting hub has confirmed receipt. Unlike NeedsListFulfilmentVersion
+    which tracks pre-approval allocation adjustments, this tracks post-completion
+    corrections to delivered quantities, references, notes, or delivery metadata.
+    """
     __tablename__ = 'fulfilment_edit_log'
     __table_args__ = (
         db.Index('idx_edit_log_needs_list', 'needs_list_id'),
         db.Index('idx_edit_log_edited_at', 'edited_at'),
+        db.Index('idx_edit_log_session', 'edit_session_id'),
     )
     
     id = db.Column(db.Integer, primary_key=True)
     needs_list_id = db.Column(db.Integer, db.ForeignKey("needs_list.id"), nullable=False)
+    fulfilment_id = db.Column(db.Integer, db.ForeignKey("needs_list_fulfilment.id"), nullable=True)  # Specific fulfilment line item edited (null for needs-list level edits)
+    
+    # Edit session grouping - multiple field edits from same save action share same session_id
+    edit_session_id = db.Column(db.String(64), nullable=False, index=True)  # UUID to group related edits
+    
     edited_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     edited_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
-    # Field being edited
-    field_name = db.Column(db.String(100), nullable=False)
+    # What was edited
+    field_name = db.Column(db.String(100), nullable=False)  # e.g., 'allocated_qty', 'dispatch_notes', 'dispatched_at'
     value_before = db.Column(db.Text, nullable=True)
     value_after = db.Column(db.Text, nullable=True)
     
     # Context
-    edit_reason = db.Column(db.Text, nullable=True)
+    edit_reason = db.Column(db.Text, nullable=True)  # Why this correction was needed
     
     needs_list = db.relationship("NeedsList")
+    fulfilment = db.relationship("NeedsListFulfilment")
     edited_by = db.relationship("User", lazy='joined')
 
 # ---------- Flask-Login Configuration ----------
