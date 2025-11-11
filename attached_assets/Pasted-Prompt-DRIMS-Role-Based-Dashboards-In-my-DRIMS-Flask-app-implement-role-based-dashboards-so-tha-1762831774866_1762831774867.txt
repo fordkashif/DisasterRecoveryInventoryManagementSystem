@@ -1,0 +1,309 @@
+Prompt (DRIMS Role-Based Dashboards):
+
+In my DRIMS Flask app, implement role-based dashboards so that, after login, each user sees a dashboard tailored to their role, permissions, and Hub Type.
+
+Use the existing DRIMS logic:
+
+Hubs: MAIN, SUB, AGENCY
+
+Roles: System Administrator, Logistics Manager, Logistics Officer, Main Hub User, Sub-Hub User, Agency Hub User, Auditor / M&E Officer, Inventory Clerk
+
+Agency Hubs are independent: no government user sees their internal stock; they are excluded from global inventory totals.
+
+1. General Implementation
+
+Create a single route, e.g. @app.route("/dashboard"), that:
+
+Detects current_user.role and (if applicable) current_user.hub / hub_type.
+
+Renders a role-specific template or partials inside one base layout.
+
+Reuse the left-side navigation layout already defined.
+
+All dashboards must:
+
+Load fast.
+
+Be clean, minimal, responsive.
+
+Show only data the user is allowed to see (respect existing permission rules).
+
+2. System Administrator Dashboard
+
+Audience: System Administrator
+
+Show:
+
+Cards:
+
+Total active users
+
+Total hubs by type (Main, Sub, Agency)
+
+System uptime/health placeholder
+
+Table:
+
+Recent user creations/role changes (audit trail)
+
+Actions:
+
+Quick links: Manage Users, Manage Hubs, System Settings
+
+Data access: full configuration visibility, no operational transactions editing.
+
+3. Logistics Manager Dashboard
+
+Audience: Logistics Manager
+
+Show:
+
+Cards:
+
+Total Main Hubs
+
+Total Sub-Hubs
+
+Total Agency Hubs
+
+Open Needs Lists: Submitted / Fulfilment Prepared / Awaiting Approval
+
+Charts / Tables:
+
+Summary of government stock (Main + Sub only; exclude Agency stock)
+
+Needs Lists requiring final approval
+
+Recently approved / rejected fulfilments
+
+Actions:
+
+“Review Needs Lists”
+
+“Review Fulfilment Prepared by Logistics Officers”
+
+“Approve Transfers”
+
+“Manage Hubs & Users”
+
+Permissions:
+
+Can see all government hubs and all Needs Lists.
+
+See Agency transactions (in/out) but not their internal inventory.
+
+4. Logistics Officer Dashboard
+
+Audience: Logistics Officer
+
+Show:
+
+Cards:
+
+Needs Lists: Submitted (awaiting review)
+
+Needs Lists with Fulfilment Prepared (pending LM approval)
+
+Tables:
+
+Queue of Needs Lists to review and prepare fulfilment for
+
+Recent transfers prepared
+
+Actions:
+
+“Review Needs List”
+
+“Prepare Fulfilment”
+
+“Draft Transfers for Approval”
+
+Permissions:
+
+Can see all Needs Lists and hub stock needed for fulfilment.
+
+Cannot final-approve; clearly label actions as “Pending Logistics Manager approval”.
+
+5. Main Hub User Dashboard
+
+Audience: Main Hub User at a MAIN hub
+
+Show (scoped to their Main Hub + allowed Sub-Hubs data):
+
+Cards:
+
+Current stock at their Main Hub
+
+Number of linked Sub-Hub requests (Needs Lists submitted to their Main Hub)
+
+Pending dispatches from their Main Hub
+
+Tables:
+
+Needs Lists assigned to their Main Hub (Sub-Hubs + Agencies)
+
+Approved transfers to execute from their Main Hub
+
+Actions:
+
+“View & Dispatch Approved Requests”
+
+“View Sub-Hub Stock Summary”
+
+“Inbound / Outbound Transactions”
+
+Permissions:
+
+See their Main Hub stock.
+
+See Sub-Hub stock only where allowed by existing rules.
+
+See Agency only as destinations in approved transactions.
+
+6. Sub-Hub User Dashboard
+
+Audience: Sub-Hub User at a SUB hub
+
+Show (scoped to their Sub-Hub only):
+
+Cards:
+
+Current stock (their Sub-Hub only)
+
+Open Needs Lists (Draft / Submitted)
+
+Pending incoming transfers
+
+Tables:
+
+Their own Needs Lists (with statuses)
+
+Recent intake and distribution transactions
+
+Actions:
+
+“Create Needs List”
+
+“Track Needs List Status”
+
+“View Incoming Transfers”
+
+Permissions:
+
+No access to other hubs’ data.
+
+Only see Needs Lists and movements involving their Sub-Hub.
+
+7. Agency Hub User Dashboard
+
+Audience: Agency Hub User at an AGENCY hub (e.g. Food for the Poor, Red Cross)
+
+Show (strictly scoped to their Agency):
+
+Cards:
+
+Needs Lists created by this Agency
+
+Approved vs Pending requests
+
+Total allocations received (from government) for this event
+
+Tables:
+
+List of Needs Lists with statuses
+
+Transfers received from Main/Sub-Hubs (for transparency)
+
+Actions:
+
+“Create Needs List to Main Hub”
+
+“View Allocation History”
+
+(Optional) “Download Receipt / Acknowledgement”
+
+Constraints:
+
+Do not show any government inventory totals.
+
+Do not show internal stock in government dashboards.
+
+They only see their own data.
+
+8. Inventory Clerk Dashboard
+
+Audience: Inventory Clerk (assigned to a single hub)
+
+Show (for their assigned hub only):
+
+Cards:
+
+Current stock count
+
+Today’s transactions: Intake / Distributions
+
+Tables:
+
+Quick list of latest transactions
+
+Actions:
+
+“Record Intake”
+
+“Record Distribution”
+
+“Scan / Search Items”
+
+No approvals, no cross-hub visibility.
+
+9. Auditor / M&E Officer Dashboard
+
+Audience: Auditor / M&E Officer
+
+Show (read-only):
+
+Cards:
+
+Total approved Needs Lists
+
+Total fulfilled allocations
+
+% of Needs Lists fulfilled on time (basic KPI)
+
+Tables:
+
+Filterable transaction log
+
+Needs Lists with statuses, hubs, and timestamps
+
+Actions:
+
+Filters, export to CSV (no edit buttons)
+
+Permissions:
+
+Read-only across government data.
+
+Exclude detailed internal Agency stock; include transactions/allocations involving Agencies.
+
+10. Technical Notes
+
+Implement a helper (e.g. get_dashboard_context(current_user)) to:
+
+Build the correct data set per role.
+
+Keep permission logic in one place.
+
+Ensure all queries respect:
+
+current_user.role
+
+current_user.hub_type
+
+current_user.hub_id
+
+Existing rules for Agency independence and Hub-scoped access.
+
+Use lightweight queries and indexes to keep dashboards performant.
+
+Implement this now so /dashboard automatically renders the correct, role-specific view for each logged-in user.
