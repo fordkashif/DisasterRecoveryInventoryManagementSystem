@@ -1157,9 +1157,87 @@ def can_delete_needs_list(user, needs_list):
     
     return (True, None)
 
+def can_dispatch_from_hub(user, needs_list, source_hub_id=None):
+    """
+    Check if user can dispatch items from a specific hub for a needs list.
+    
+    This is the authoritative dispatch permission check for operational hub users.
+    Supports both new normalized governance model and legacy role assignments.
+    
+    Permissions:
+    - ADMIN, LOGISTICS_MANAGER, LOGISTICS_OFFICER: Global dispatch rights
+    - MAIN_HUB_USER, SUB_HUB_USER, INVENTORY_CLERK: Can dispatch if their hub
+      is a source hub in the approved fulfilment
+    - WAREHOUSE_SUPERVISOR (legacy): Treated as SUB_HUB_USER for dispatch
+    
+    Args:
+        user: User object
+        needs_list: NeedsList object
+        source_hub_id: Optional specific hub ID to check (if None, checks user's hub assignments)
+    
+    Returns:
+        tuple: (allowed: bool, error_message: str or None)
+    """
+    # Status validation: Allow dispatch for Approved or later stages
+    valid_statuses = ['Approved', 'Resent for Dispatch', 'Dispatched', 'Received', 'Completed']
+    if needs_list.status not in valid_statuses:
+        return (False, f"Cannot dispatch items for needs lists with status '{needs_list.status}'.")
+    
+    # ADMIN and Logistics staff have global dispatch rights
+    if user.has_any_role(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER):
+        return (True, None)
+    
+    # Operational hub users: MAIN_HUB_USER, SUB_HUB_USER, INVENTORY_CLERK
+    # Also include legacy WAREHOUSE_SUPERVISOR (maps to SUB_HUB_USER permissions)
+    operational_roles = [
+        ROLE_MAIN_HUB_USER, 
+        ROLE_SUB_HUB_USER, 
+        ROLE_INVENTORY_CLERK,
+        ROLE_WAREHOUSE_SUPERVISOR  # Legacy role
+    ]
+    
+    if not user.has_any_role(*operational_roles):
+        return (False, "You don't have permission to dispatch items.")
+    
+    # Get source hub IDs from this needs list's fulfilments
+    fulfilments = NeedsListFulfilment.query.filter_by(needs_list_id=needs_list.id).all()
+    source_hub_ids = {f.source_hub_id for f in fulfilments if f.source_hub_id}
+    
+    if not source_hub_ids:
+        return (False, "No fulfilment sources defined for this needs list.")
+    
+    # If a specific source hub is provided, check only that hub
+    if source_hub_id:
+        if source_hub_id not in source_hub_ids:
+            return (False, f"Hub {source_hub_id} is not a source hub for this needs list.")
+        
+        # Check if user has access to this specific hub
+        if user.has_hub_access(source_hub_id):
+            return (True, None)
+        
+        # Fallback to legacy assigned_location_id
+        if user.assigned_location_id == source_hub_id:
+            return (True, None)
+        
+        return (False, "You don't have access to this hub.")
+    
+    # No specific hub provided - check if user has access to ANY source hub
+    # First check new multi-hub assignments
+    for hub_id in source_hub_ids:
+        if user.has_hub_access(hub_id):
+            return (True, None)
+    
+    # Fallback to legacy single assigned_location_id
+    if user.assigned_location_id and user.assigned_location_id in source_hub_ids:
+        return (True, None)
+    
+    return (False, "You can only dispatch items from hubs where you are assigned as a source.")
+
 def is_warehouse_user_assigned_to_source_hub(user, needs_list):
     """
     Check if a warehouse user is assigned to any of the source hubs for a needs list.
+    
+    DEPRECATED: Use can_dispatch_from_hub() instead for proper permission checking.
     
     Args:
         user: The warehouse user (Warehouse Supervisor or Warehouse Officer)
@@ -1181,36 +1259,25 @@ def can_dispatch_needs_list(user, needs_list):
     """
     Check if user can dispatch an approved needs list.
     
+    This enforces the strict "Approved" status requirement for initial dispatch workflow.
+    For more flexible dispatch permission checking (including Resent for Dispatch, etc.),
+    use can_dispatch_from_hub() directly.
+    
     Dispatch permissions:
     - ADMIN: Can dispatch any approved needs list
     - LOGISTICS_MANAGER/OFFICER: Can dispatch any approved needs list
-    - SUB_HUB_USER: Can dispatch if their hub is a source hub in the fulfilment
-    - MAIN_HUB_USER: Can dispatch if their hub is a source hub in the fulfilment
+    - SUB_HUB_USER, MAIN_HUB_USER, INVENTORY_CLERK: Can dispatch if their hub is a source hub
+    - WAREHOUSE_SUPERVISOR (legacy): Can dispatch if their hub is a source hub
     
     Returns:
         tuple: (allowed: bool, error_message: str or None)
     """
-    # Must be in Approved status (post-approval, ready for dispatch)
+    # Strict status gate: Only "Approved" status for initial dispatch
     if needs_list.status != 'Approved':
         return (False, "Only approved needs lists can be dispatched.")
     
-    # ADMIN and Logistics staff can dispatch any approved needs list
-    if user.has_any_role(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER):
-        return (True, None)
-    
-    # Hub users can only dispatch if authorized for their hub
-    if not user.has_any_role(ROLE_SUB_HUB_USER, ROLE_MAIN_HUB_USER):
-        return (False, "You don't have permission to dispatch items.")
-    
-    # Verify user is assigned to a hub
-    if not user.assigned_location_id:
-        return (False, "You must be assigned to a hub to dispatch items.")
-    
-    # Check if user's hub is a source hub for this needs list
-    if not is_warehouse_user_assigned_to_source_hub(user, needs_list):
-        return (False, "You can only dispatch items from your assigned hub.")
-    
-    return (True, None)
+    # Delegate to the authoritative dispatch permission helper
+    return can_dispatch_from_hub(user, needs_list)
 
 def can_confirm_receipt(user, needs_list):
     """
