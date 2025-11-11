@@ -1459,8 +1459,8 @@ def record_package_status_change(package, old_status, new_status, changed_by, no
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        # Redirect warehouse users to their dedicated dashboard
-        if current_user.has_any_role(ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+        # Redirect Sub-Hub users to their dedicated dashboard
+        if current_user.has_role(ROLE_SUB_HUB_USER):
             return redirect(url_for("warehouse_dashboard"))
         return redirect(url_for("dashboard"))
     
@@ -1490,8 +1490,8 @@ def login():
             if next_page and is_safe_url(next_page):
                 return redirect(next_page)
             
-            # Redirect warehouse users to their dedicated dashboard
-            if user.has_any_role(ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+            # Redirect Sub-Hub users to their dedicated dashboard
+            if user.has_role(ROLE_SUB_HUB_USER):
                 return redirect(url_for("warehouse_dashboard"))
             
             return redirect(url_for("dashboard"))
@@ -1514,8 +1514,8 @@ def logout():
 def dashboard():
     from datetime import datetime, timedelta
     
-    # Redirect warehouse users to dedicated warehouse dashboard
-    if current_user.has_any_role(ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+    # Redirect Sub-Hub users to dedicated warehouse dashboard
+    if current_user.has_role(ROLE_SUB_HUB_USER):
         return redirect(url_for("warehouse_dashboard"))
     
     # Block Agency hub users from accessing dashboard
@@ -1839,8 +1839,8 @@ def items():
     # Get stock by location for all items
     stock_map = get_stock_by_location()
     
-    # For warehouse supervisors/officers: show only their assigned Sub-Hub
-    if current_user.has_any_role(ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+    # For Sub-Hub users: show only their assigned Sub-Hub
+    if current_user.has_role(ROLE_SUB_HUB_USER):
         if not current_user.assigned_location_id:
             flash("You must be assigned to a hub to view inventory.", "danger")
             return redirect(url_for("warehouse_dashboard"))
@@ -1850,7 +1850,7 @@ def items():
             flash("Inventory access is only available for Sub-Hub assignments.", "danger")
             return redirect(url_for("warehouse_dashboard"))
         
-        # Warehouse users can only see their assigned hub
+        # Sub-Hub users can only see their assigned hub
         locations = [assigned_hub]
         all_hubs = [assigned_hub]
     else:
@@ -2160,8 +2160,8 @@ def transactions():
     # Build the query
     query = Transaction.query
     
-    # Warehouse Supervisors/Officers should only see transactions for their assigned Sub-Hub
-    if current_user.has_any_role(ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+    # Sub-Hub users should only see transactions for their assigned Sub-Hub
+    if current_user.has_role(ROLE_SUB_HUB_USER):
         if not current_user.assigned_location_id:
             flash("You must be assigned to a hub to view transaction history.", "danger")
             return redirect(url_for("warehouse_dashboard"))
@@ -2209,8 +2209,8 @@ def transactions():
 @app.route("/reports/stock")
 @login_required
 def report_stock():
-    # Warehouse Supervisors/Officers should only see stock for their assigned Sub-Hub
-    if current_user.has_any_role(ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+    # Sub-Hub users should only see stock for their assigned Sub-Hub
+    if current_user.has_role(ROLE_SUB_HUB_USER):
         if not current_user.assigned_location_id:
             flash("You must be assigned to a hub to view stock reports.", "danger")
             return redirect(url_for("warehouse_dashboard"))
@@ -3147,9 +3147,9 @@ def needs_list_details(list_id):
     # Get consistent header status display
     header_status = get_needs_list_status_display(needs_list)
     
-    # Check if current user can dispatch this needs list (for warehouse users and admins)
+    # Check if current user can dispatch this needs list (for hub users and admins)
     can_dispatch = False
-    if needs_list.status == 'Approved' and current_user.has_any_role(ROLE_ADMIN, ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER):
+    if needs_list.status == 'Approved' and current_user.has_any_role(ROLE_ADMIN, ROLE_LOGISTICS_MANAGER, ROLE_LOGISTICS_OFFICER, ROLE_SUB_HUB_USER, ROLE_MAIN_HUB_USER):
         can_dispatch, _ = can_dispatch_needs_list(current_user, needs_list)
     
     # Fetch change requests for this needs list
@@ -3547,16 +3547,20 @@ def needs_list_prepare(list_id):
                 
                 db.session.commit()
                 
-                # Notify warehouse users at the requesting hub
+                # Notify Sub-Hub users at the requesting hub
                 requesting_hub_id = change_request.requesting_hub_id
-                warehouse_users = User.query.filter(
-                    User.role.in_([ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]),
+                sub_hub_users = User.query.join(
+                    UserRole, User.id == UserRole.user_id
+                ).join(
+                    Role, UserRole.role_id == Role.id
+                ).filter(
+                    Role.code == ROLE_SUB_HUB_USER,
                     User.assigned_location_id == requesting_hub_id
                 ).all()
                 
-                warehouse_user_ids = [user.id for user in warehouse_users]
+                sub_hub_user_ids = [user.id for user in sub_hub_users]
                 create_notifications_for_users(
-                    user_ids=warehouse_user_ids,
+                    user_ids=sub_hub_user_ids,
                     title="Updated Fulfilment Received",
                     message=f"Updated fulfilment for needs list {needs_list.list_number} has been resent. Review and dispatch as required.",
                     notification_type="success",
@@ -3880,9 +3884,9 @@ def needs_list_dispatch(list_id):
         triggered_by_user=current_user
     )
     
-    # Notify Warehouse Staff about dispatch completion
+    # Notify Inventory Clerks about dispatch completion
     create_notifications_for_role(
-        role=ROLE_WAREHOUSE_STAFF,
+        role=ROLE_INVENTORY_CLERK,
         title="Dispatch Completed",
         message=f"Needs list {needs_list.list_number} to {needs_list.agency_hub.name} has been dispatched.",
         notification_type="task_assigned",
@@ -3896,11 +3900,11 @@ def needs_list_dispatch(list_id):
         needs_list_id=needs_list.id
     )
     
-    # Notify Field Personnel about items dispatched for potential distribution support
+    # Notify Agency Hub users about items dispatched for receipt
     create_notifications_for_role(
-        role=ROLE_FIELD_PERSONNEL,
-        title="Items Dispatched to Agency",
-        message=f"Items for needs list {needs_list.list_number} dispatched to {needs_list.agency_hub.name}. Be ready to assist with distribution if needed.",
+        role=ROLE_AGENCY_HUB_USER,
+        title="Items Dispatched to Your Hub",
+        message=f"Items for needs list {needs_list.list_number} dispatched to {needs_list.agency_hub.name}. Please confirm receipt when items arrive.",
         notification_type="task_assigned",
         link_url=f"/needs-lists/{needs_list.id}",
         payload_data={
@@ -3908,7 +3912,7 @@ def needs_list_dispatch(list_id):
             "agency_hub": needs_list.agency_hub.name,
             "dispatched_by": current_user.display_name,
             "dispatched_by_id": current_user.id,
-            "event_type": "distribution_support"
+            "event_type": "dispatched_for_receipt"
         },
         needs_list_id=needs_list.id
     )
@@ -3981,9 +3985,9 @@ def needs_list_confirm_receipt(list_id):
         needs_list_id=needs_list.id
     )
     
-    # Notify Executives about completed deliveries for high-level oversight
+    # Notify Auditors about completed deliveries for oversight
     create_notifications_for_role(
-        role=ROLE_EXECUTIVE,
+        role=ROLE_AUDITOR,
         title="Supply Delivery Completed",
         message=f"Needs list {needs_list.list_number} delivery to {needs_list.agency_hub.name} has been successfully completed.",
         notification_type="task_assigned",
@@ -4615,10 +4619,10 @@ def user_new():
             flash("Invalid role selected.", "danger")
             return redirect(url_for("user_new"))
         
-        # Validate warehouse roles require SUB hub assignment
-        if role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        # Validate SUB_HUB_USER role requires SUB hub assignment
+        if role == ROLE_SUB_HUB_USER:
             if not assigned_location_id:
-                flash("Warehouse Supervisors and Officers must be assigned to a Sub-Hub.", "danger")
+                flash("Sub-Hub Users must be assigned to a Sub-Hub.", "danger")
                 return redirect(url_for("user_new"))
             
             assigned_depot = Depot.query.get(int(assigned_location_id))
@@ -4627,7 +4631,7 @@ def user_new():
                 return redirect(url_for("user_new"))
             
             if assigned_depot.hub_type != 'SUB':
-                flash("Warehouse roles can only be assigned to Sub-Hubs.", "danger")
+                flash("Sub-Hub User role can only be assigned to Sub-Hubs.", "danger")
                 return redirect(url_for("user_new"))
         
         existing = User.query.filter_by(email=email).first()
@@ -4703,10 +4707,10 @@ def user_edit(user_id):
             flash("Invalid role selected.", "danger")
             return redirect(url_for("user_edit", user_id=user_id))
         
-        # Validate warehouse roles require SUB hub assignment
-        if role in [ROLE_WAREHOUSE_SUPERVISOR, ROLE_WAREHOUSE_OFFICER]:
+        # Validate SUB_HUB_USER role requires SUB hub assignment
+        if role == ROLE_SUB_HUB_USER:
             if not assigned_location_id:
-                flash("Warehouse Supervisors and Officers must be assigned to a Sub-Hub.", "danger")
+                flash("Sub-Hub Users must be assigned to a Sub-Hub.", "danger")
                 return redirect(url_for("user_edit", user_id=user_id))
             
             assigned_depot = Depot.query.get(int(assigned_location_id))
@@ -4715,7 +4719,7 @@ def user_edit(user_id):
                 return redirect(url_for("user_edit", user_id=user_id))
             
             if assigned_depot.hub_type != 'SUB':
-                flash("Warehouse roles can only be assigned to Sub-Hubs.", "danger")
+                flash("Sub-Hub User role can only be assigned to Sub-Hubs.", "danger")
                 return redirect(url_for("user_edit", user_id=user_id))
         
         existing = User.query.filter(User.email == email, User.id != user_id).first()
