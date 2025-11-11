@@ -634,6 +634,392 @@ def get_stock_by_location():
     
     return {(item_sku, loc_id): stock for item_sku, loc_id, stock in rows}
 
+# ---------- Role-Based Dashboard Context Builders ----------
+
+def get_dashboard_context(user):
+    """
+    Central dashboard context builder that routes to role-specific builders.
+    Returns a dictionary with dashboard data tailored to the user's role and permissions.
+    
+    Args:
+        user: Current user object with role and hub assignments
+        
+    Returns:
+        dict: Dashboard context with role-specific metrics, tables, and actions
+    """
+    from datetime import datetime, timedelta, date
+    
+    # Determine primary role (users can have multiple roles, prioritize in order)
+    role_priority = [
+        ROLE_ADMIN,
+        ROLE_LOGISTICS_MANAGER,
+        ROLE_LOGISTICS_OFFICER,
+        ROLE_MAIN_HUB_USER,
+        ROLE_SUB_HUB_USER,
+        ROLE_AGENCY_HUB_USER,
+        ROLE_AUDITOR,
+        ROLE_INVENTORY_CLERK
+    ]
+    
+    primary_role = None
+    for role in role_priority:
+        if user.has_role(role):
+            primary_role = role
+            break
+    
+    # Route to appropriate dashboard builder
+    if primary_role == ROLE_LOGISTICS_MANAGER:
+        return build_logistics_manager_dashboard(user)
+    elif primary_role == ROLE_LOGISTICS_OFFICER:
+        return build_logistics_officer_dashboard(user)
+    elif primary_role == ROLE_MAIN_HUB_USER:
+        return build_main_hub_dashboard(user)
+    elif primary_role == ROLE_SUB_HUB_USER:
+        return build_sub_hub_dashboard(user)
+    elif primary_role == ROLE_ADMIN:
+        # Admin gets logistics manager view for now (can be customized later)
+        return build_logistics_manager_dashboard(user)
+    else:
+        # Fallback to basic view
+        return build_basic_dashboard(user)
+
+def build_logistics_manager_dashboard(user):
+    """
+    Build dashboard context for Logistics Manager role.
+    Full visibility of government hubs, needs lists, and stock.
+    """
+    from datetime import datetime, timedelta, date
+    
+    context = {'role': 'Logistics Manager', 'template': 'logistics_manager'}
+    
+    # Hub counts
+    main_hubs = Depot.query.filter_by(hub_type='MAIN').all()
+    sub_hubs = Depot.query.filter_by(hub_type='SUB').all()
+    agency_hubs = Depot.query.filter_by(hub_type='AGENCY').all()
+    
+    context['cards'] = {
+        'main_hubs_count': len(main_hubs),
+        'sub_hubs_count': len(sub_hubs),
+        'agency_hubs_count': len(agency_hubs),
+        'submitted_count': NeedsList.query.filter_by(status='Submitted').count(),
+        'fulfilment_prepared_count': NeedsList.query.filter_by(status='Fulfilment Prepared').count(),
+        'awaiting_approval_count': NeedsList.query.filter_by(status='Awaiting Approval').count(),
+        'approved_count': NeedsList.query.filter_by(status='Approved').count()
+    }
+    
+    # Government stock summary (Main + Sub hubs only, exclude Agency)
+    government_hubs = main_hubs + sub_hubs
+    stock_map = get_stock_by_location()
+    total_stock_units = 0
+    stock_by_hub = []
+    
+    for hub in government_hubs:
+        hub_total = sum(stock_map.get((item.sku, hub.id), 0) for item in Item.query.all())
+        total_stock_units += hub_total
+        stock_by_hub.append({
+            'hub': hub,
+            'total_units': hub_total,
+            'hub_type': hub.hub_type
+        })
+    
+    context['government_stock'] = {
+        'total_units': total_stock_units,
+        'by_hub': sorted(stock_by_hub, key=lambda x: x['total_units'], reverse=True)[:10]
+    }
+    
+    # Needs Lists requiring review/approval
+    context['needs_lists_queue'] = {
+        'submitted': NeedsList.query.filter_by(status='Submitted')\
+                              .order_by(NeedsList.submitted_at.asc()).limit(10).all(),
+        'fulfilment_prepared': NeedsList.query.filter_by(status='Fulfilment Prepared')\
+                                        .order_by(NeedsList.prepared_at.asc()).limit(10).all(),
+        'awaiting_approval': NeedsList.query.filter_by(status='Awaiting Approval')\
+                                       .order_by(NeedsList.prepared_at.asc()).limit(10).all()
+    }
+    
+    # Recent approvals/rejections (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    context['recent_decisions'] = {
+        'approved': NeedsList.query.filter(
+            NeedsList.status.in_(['Approved', 'Dispatched', 'Received', 'Completed']),
+            NeedsList.approved_at >= thirty_days_ago
+        ).order_by(NeedsList.approved_at.desc()).limit(10).all(),
+        'rejected': NeedsList.query.filter_by(status='Rejected')\
+                             .filter(NeedsList.approved_at >= thirty_days_ago)\
+                             .order_by(NeedsList.approved_at.desc()).limit(5).all()
+    }
+    
+    # KPIs - Last 7 days activity
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    context['kpis'] = {
+        'approved_7d': NeedsList.query.filter(
+            NeedsList.approved_at >= seven_days_ago
+        ).count(),
+        'dispatched_7d': NeedsList.query.filter(
+            NeedsList.status.in_(['Dispatched', 'Received', 'Completed']),
+            NeedsList.dispatched_at >= seven_days_ago
+        ).count(),
+        'completed_7d': NeedsList.query.filter(
+            NeedsList.status == 'Completed',
+            NeedsList.fulfilled_at >= seven_days_ago
+        ).count()
+    }
+    
+    return context
+
+def build_logistics_officer_dashboard(user):
+    """
+    Build dashboard context for Logistics Officer role.
+    Focus on needs lists to review and prepare fulfilment for.
+    """
+    from datetime import datetime, timedelta
+    
+    context = {'role': 'Logistics Officer', 'template': 'logistics_officer'}
+    
+    # Needs Lists awaiting review (Submitted status)
+    submitted_lists = NeedsList.query.filter_by(status='Submitted')\
+                               .order_by(NeedsList.submitted_at.asc()).all()
+    
+    # Needs Lists with prepared fulfilment (pending LM approval)
+    prepared_lists = NeedsList.query.filter_by(status='Fulfilment Prepared')\
+                              .order_by(NeedsList.prepared_at.desc()).all()
+    
+    awaiting_approval = NeedsList.query.filter_by(status='Awaiting Approval')\
+                                 .order_by(NeedsList.prepared_at.desc()).all()
+    
+    context['cards'] = {
+        'submitted_count': len(submitted_lists),
+        'prepared_count': len(prepared_lists),
+        'awaiting_count': len(awaiting_approval),
+        'my_prepared_count': NeedsList.query.filter(
+            NeedsList.prepared_by == user.display_name,
+            NeedsList.status.in_(['Fulfilment Prepared', 'Awaiting Approval', 'Approved'])
+        ).count()
+    }
+    
+    # Queue of needs lists to work on
+    context['work_queue'] = {
+        'submitted': submitted_lists[:15],
+        'fulfilment_prepared': prepared_lists[:10],
+        'awaiting_approval': awaiting_approval[:10]
+    }
+    
+    # Recent activity by this officer
+    my_recent = NeedsList.query.filter_by(prepared_by=user.display_name)\
+                         .order_by(NeedsList.prepared_at.desc()).limit(10).all()
+    
+    context['my_recent_work'] = my_recent
+    
+    # Government stock availability (for fulfilment planning)
+    stock_map = get_stock_by_location()
+    government_hubs = Depot.query.filter(Depot.hub_type.in_(['MAIN', 'SUB'])).all()
+    
+    total_stock = sum(
+        stock_map.get((item.sku, hub.id), 0)
+        for item in Item.query.all()
+        for hub in government_hubs
+    )
+    
+    context['stock_overview'] = {
+        'total_units': total_stock,
+        'government_hubs_count': len(government_hubs)
+    }
+    
+    return context
+
+def build_main_hub_dashboard(user):
+    """
+    Build dashboard context for Main Hub User role.
+    Scoped to their Main Hub + visibility of linked Sub-Hub requests.
+    """
+    from datetime import datetime, timedelta
+    
+    context = {'role': 'Main Hub User', 'template': 'main_hub'}
+    
+    # Verify user is assigned to a MAIN hub
+    if not user.assigned_location_id:
+        context['error'] = "You must be assigned to a hub."
+        return context
+    
+    main_hub = Depot.query.get(user.assigned_location_id)
+    if not main_hub or main_hub.hub_type != 'MAIN':
+        context['error'] = "Main Hub dashboard requires assignment to a MAIN hub."
+        return context
+    
+    context['hub'] = main_hub
+    
+    # Current stock at Main Hub
+    stock_map = get_stock_by_location()
+    items = Item.query.all()
+    hub_stock = []
+    total_stock_value = 0
+    low_stock_count = 0
+    
+    for item in items:
+        stock = stock_map.get((item.sku, main_hub.id), 0)
+        if stock > 0:
+            is_low = stock < (item.min_qty or 10)
+            if is_low:
+                low_stock_count += 1
+            hub_stock.append({
+                'item': item,
+                'stock': stock,
+                'is_low': is_low
+            })
+            total_stock_value += stock
+    
+    context['cards'] = {
+        'total_stock': total_stock_value,
+        'low_stock_count': low_stock_count,
+        'unique_items': len([s for s in hub_stock if s['stock'] > 0])
+    }
+    
+    # Needs Lists involving this Main Hub
+    # As a source hub in fulfilments
+    needs_lists_as_source = db.session.query(NeedsList).join(
+        NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
+    ).filter(
+        NeedsListFulfilment.source_hub_id == main_hub.id,
+        NeedsList.status.in_(['Approved', 'Resent for Dispatch'])
+    ).distinct().order_by(NeedsList.approved_at.desc()).all()
+    
+    context['cards']['pending_dispatches'] = len(needs_lists_as_source)
+    
+    # Linked Sub-Hubs (those reporting to this Main Hub)
+    linked_sub_hubs = Depot.query.filter_by(
+        parent_location_id=main_hub.id,
+        hub_type='SUB'
+    ).all()
+    
+    context['cards']['linked_sub_hubs'] = len(linked_sub_hubs)
+    
+    # Needs Lists from linked hubs
+    sub_hub_requests = NeedsList.query.filter(
+        NeedsList.agency_hub_id.in_([h.id for h in linked_sub_hubs])
+    ).order_by(NeedsList.created_at.desc()).limit(15).all()
+    
+    context['work_queues'] = {
+        'ready_to_dispatch': needs_lists_as_source[:10],
+        'sub_hub_requests': sub_hub_requests
+    }
+    
+    context['hub_stock'] = sorted(hub_stock, key=lambda x: x['stock'], reverse=True)[:20]
+    context['linked_hubs'] = linked_sub_hubs
+    
+    return context
+
+def build_sub_hub_dashboard(user):
+    """
+    Build dashboard context for Sub-Hub User role.
+    Strictly scoped to their own Sub-Hub.
+    """
+    from datetime import datetime, timedelta
+    
+    context = {'role': 'Sub-Hub User', 'template': 'sub_hub'}
+    
+    # Verify user is assigned to a SUB hub
+    if not user.assigned_location_id:
+        context['error'] = "You must be assigned to a hub."
+        return context
+    
+    sub_hub = Depot.query.get(user.assigned_location_id)
+    if not sub_hub or sub_hub.hub_type != 'SUB':
+        context['error'] = "Sub-Hub dashboard requires assignment to a SUB hub."
+        return context
+    
+    context['hub'] = sub_hub
+    
+    # Current stock at Sub-Hub
+    stock_map = get_stock_by_location()
+    items = Item.query.all()
+    hub_stock = []
+    total_stock_value = 0
+    low_stock_count = 0
+    
+    for item in items:
+        stock = stock_map.get((item.sku, sub_hub.id), 0)
+        if stock > 0:
+            is_low = stock < (item.min_qty or 10)
+            if is_low:
+                low_stock_count += 1
+            hub_stock.append({
+                'item': item,
+                'stock': stock,
+                'is_low': is_low
+            })
+            total_stock_value += stock
+    
+    # Own Needs Lists
+    own_needs_lists = NeedsList.query.filter_by(agency_hub_id=sub_hub.id)\
+                               .order_by(NeedsList.created_at.desc()).all()
+    
+    draft_count = sum(1 for nl in own_needs_lists if nl.status == 'Draft')
+    submitted_count = sum(1 for nl in own_needs_lists if nl.status == 'Submitted')
+    in_progress_count = sum(1 for nl in own_needs_lists if nl.status in ['Fulfilment Prepared', 'Awaiting Approval', 'Approved'])
+    
+    context['cards'] = {
+        'total_stock': total_stock_value,
+        'low_stock_count': low_stock_count,
+        'draft_lists': draft_count,
+        'submitted_lists': submitted_count,
+        'in_progress_lists': in_progress_count
+    }
+    
+    # Ready to dispatch (Approved needs lists where this hub is a source)
+    ready_to_dispatch = db.session.query(NeedsList).join(
+        NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
+    ).filter(
+        NeedsList.status.in_(['Approved', 'Resent for Dispatch']),
+        NeedsListFulfilment.source_hub_id == sub_hub.id
+    ).distinct().order_by(NeedsList.approved_at.desc()).all()
+    
+    context['cards']['ready_to_dispatch'] = len(ready_to_dispatch)
+    
+    # Recent dispatch activity (last 14 days)
+    fourteen_days_ago = datetime.utcnow() - timedelta(days=14)
+    recent_dispatches = db.session.query(NeedsList).join(
+        NeedsListFulfilment, NeedsList.id == NeedsListFulfilment.needs_list_id
+    ).filter(
+        NeedsList.status == 'Dispatched',
+        NeedsList.dispatched_at >= fourteen_days_ago,
+        NeedsListFulfilment.source_hub_id == sub_hub.id
+    ).distinct().order_by(NeedsList.dispatched_at.desc()).all()
+    
+    context['work_queues'] = {
+        'own_needs_lists': own_needs_lists[:10],
+        'ready_to_dispatch': ready_to_dispatch[:10],
+        'recent_dispatches': recent_dispatches
+    }
+    
+    context['hub_stock'] = sorted(hub_stock, key=lambda x: x['stock'], reverse=True)[:20]
+    
+    # Pending incoming transfers
+    pending_transfers = NeedsList.query.filter(
+        NeedsList.agency_hub_id == sub_hub.id,
+        NeedsList.status.in_(['Approved', 'Dispatched'])
+    ).order_by(NeedsList.created_at.desc()).limit(10).all()
+    
+    context['pending_transfers'] = pending_transfers
+    
+    return context
+
+def build_basic_dashboard(user):
+    """
+    Fallback dashboard for roles not yet implemented.
+    Shows basic stats only.
+    """
+    context = {'role': 'Basic', 'template': 'basic'}
+    
+    context['cards'] = {
+        'total_hubs': Depot.query.count(),
+        'total_items': Item.query.count(),
+        'active_events': DisasterEvent.query.filter_by(status='Active').count()
+    }
+    
+    context['message'] = "Welcome to DRIMS. Your role-specific dashboard is being prepared."
+    
+    return context
+
 def ensure_seed_data():
     # Seed locations
     if Depot.query.count() == 0:
