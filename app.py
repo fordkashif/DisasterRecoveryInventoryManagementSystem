@@ -4548,7 +4548,9 @@ def user_new():
             flash("Password must be at least 8 characters.", "danger")
             return redirect(url_for("user_new"))
         
-        if role not in ALL_ROLES:
+        # Validate role exists in database
+        role_obj = Role.query.filter_by(code=role).first()
+        if not role_obj:
             flash("Invalid role selected.", "danger")
             return redirect(url_for("user_new"))
         
@@ -4609,7 +4611,8 @@ def user_new():
         return redirect(url_for("users"))
     
     locations = Depot.query.order_by(Depot.name.asc()).all()
-    return render_template("user_form.html", user=None, all_roles=ALL_ROLES, locations=locations)
+    roles = Role.query.order_by(Role.name.asc()).all()
+    return render_template("user_form.html", user=None, roles=roles, locations=locations)
 
 @app.route("/users/<int:user_id>/edit", methods=["GET", "POST"])
 @role_required(ROLE_ADMIN)
@@ -4633,7 +4636,9 @@ def user_edit(user_id):
             flash("Email, first name, last name, and role are required.", "danger")
             return redirect(url_for("user_edit", user_id=user_id))
         
-        if role not in ALL_ROLES:
+        # Validate role exists in database
+        role_obj = Role.query.filter_by(code=role).first()
+        if not role_obj:
             flash("Invalid role selected.", "danger")
             return redirect(url_for("user_edit", user_id=user_id))
         
@@ -4704,7 +4709,8 @@ def user_edit(user_id):
         return redirect(url_for("users"))
     
     locations = Depot.query.order_by(Depot.name.asc()).all()
-    return render_template("user_form.html", user=user, all_roles=ALL_ROLES, locations=locations)
+    roles = Role.query.order_by(Role.name.asc()).all()
+    return render_template("user_form.html", user=user, roles=roles, locations=locations)
 
 # ---------- CLI for DB ----------
 @app.cli.command("init-db")
