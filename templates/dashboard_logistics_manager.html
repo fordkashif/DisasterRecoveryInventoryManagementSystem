@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Logistics Manager Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <div class="mb-4">
+    <h2 class="mb-1"><i class="bi bi-speedometer2 me-2"></i>Logistics Manager Dashboard</h2>
+    <p class="text-muted mb-0">Oversee all government hubs, needs lists, and stock allocations</p>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Government Hubs</p>
+              <h2 class="mb-2 fw-bold display-6">{{ cards.main_hubs_count + cards.sub_hubs_count }}</h2>
+              <small class="text-success"><i class="bi bi-building me-1"></i>{{ cards.main_hubs_count }} Main + {{ cards.sub_hubs_count }} Sub</small>
+            </div>
+            <div class="icon-box bg-primary bg-gradient"><i class="bi bi-building"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Government Stock</p>
+              <h2 class="mb-2 fw-bold display-6">{{ "{:,}".format(government_stock.total_units) }}</h2>
+              <small class="text-muted"><i class="bi bi-boxes me-1"></i>Total Units</small>
+            </div>
+            <div class="icon-box bg-success bg-gradient"><i class="bi bi-boxes"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Needs Review</p>
+              <h2 class="mb-2 fw-bold display-6">{{ cards.submitted_count + cards.fulfilment_prepared_count + cards.awaiting_approval_count }}</h2>
+              <small class="text-warning"><i class="bi bi-clock-fill me-1"></i>Awaiting Action</small>
+            </div>
+            <div class="icon-box bg-warning bg-gradient"><i class="bi bi-clipboard-check"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Approved (7 days)</p>
+              <h2 class="mb-2 fw-bold display-6">{{ kpis.approved_7d }}</h2>
+              <small class="text-success"><i class="bi bi-check-circle-fill me-1"></i>{{ kpis.completed_7d }} Completed</small>
+            </div>
+            <div class="icon-box bg-success bg-gradient"><i class="bi bi-check-circle"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Work Queues -->
+  <div class="row g-4 mb-4">
+    <!-- Submitted Needs Lists -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-inbox me-2 text-primary"></i>Submitted Needs Lists</h5>
+          <p class="text-muted small mb-0">{{ cards.submitted_count }} awaiting assignment</p>
+        </div>
+        <div class="card-body">
+          {% if needs_lists_queue.submitted %}
+            <div class="list-group list-group-flush">
+              {% for nl in needs_lists_queue.submitted %}
+                <a href="{{ url_for('needs_list_details', id=nl.id) }}" class="list-group-item list-group-item-action px-0">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ nl.list_number }}</div>
+                      <small class="text-muted">{{ nl.agency_hub.name if nl.agency_hub else 'Unknown' }}</small>
+                    </div>
+                    <span class="badge bg-primary">{{ nl.items|length }} items</span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4"><i class="bi bi-check-circle me-2"></i>All caught up!</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Awaiting Approval -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-hourglass-split me-2 text-warning"></i>Awaiting Approval</h5>
+          <p class="text-muted small mb-0">{{ cards.awaiting_approval_count }} ready for review</p>
+        </div>
+        <div class="card-body">
+          {% if needs_lists_queue.awaiting_approval %}
+            <div class="list-group list-group-flush">
+              {% for nl in needs_lists_queue.awaiting_approval %}
+                <a href="{{ url_for('needs_list_details', id=nl.id) }}" class="list-group-item list-group-item-action px-0">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ nl.list_number }}</div>
+                      <small class="text-muted">{{ nl.agency_hub.name if nl.agency_hub else 'Unknown' }}</small>
+                    </div>
+                    <span class="badge bg-warning">Review</span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4"><i class="bi bi-check-circle me-2"></i>All caught up!</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Approvals -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-check-circle me-2 text-success"></i>Recent Approvals</h5>
+          <p class="text-muted small mb-0">Last 30 days</p>
+        </div>
+        <div class="card-body">
+          {% if recent_decisions.approved %}
+            <div class="list-group list-group-flush">
+              {% for nl in recent_decisions.approved %}
+                <a href="{{ url_for('needs_list_details', id=nl.id) }}" class="list-group-item list-group-item-action px-0">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ nl.list_number }}</div>
+                      <small class="text-muted">{{ nl.agency_hub.name if nl.agency_hub else 'Unknown' }}</small>
+                    </div>
+                    <span class="badge bg-success">{{ nl.status }}</span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4">No recent approvals</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Government Stock by Hub -->
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-bar-chart me-2 text-primary"></i>Government Stock by Hub</h5>
+          <p class="text-muted small mb-0">Top {{ government_stock.by_hub|length }} hubs by stock volume</p>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Hub Name</th>
+                  <th>Type</th>
+                  <th class="text-end">Total Units</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for entry in government_stock.by_hub %}
+                  <tr>
+                    <td><i class="bi bi-building me-2"></i>{{ entry.hub.name }}</td>
+                    <td><span class="badge bg-{{ 'primary' if entry.hub_type == 'MAIN' else 'secondary' }}">{{ entry.hub_type }}</span></td>
+                    <td class="text-end fw-semibold">{{ "{:,}".format(entry.total_units) }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

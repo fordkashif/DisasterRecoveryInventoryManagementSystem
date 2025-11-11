@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Main Hub Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <div class="mb-4">
+    <h2 class="mb-1"><i class="bi bi-building me-2"></i>Main Hub Dashboard</h2>
+    {% if hub %}
+      <p class="text-muted mb-0"><i class="bi bi-geo-alt me-2"></i>{{ hub.name }}</p>
+    {% endif %}
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger">
+      <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+    </div>
+  {% else %}
+
+  <!-- Key Metrics -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Hub Stock</p>
+              <h2 class="mb-2 fw-bold display-6">{{ "{:,}".format(cards.total_stock) }}</h2>
+              <small class="text-muted"><i class="bi bi-boxes me-1"></i>{{ cards.unique_items }} Items</small>
+            </div>
+            <div class="icon-box bg-success bg-gradient"><i class="bi bi-boxes"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Low Stock Alerts</p>
+              <h2 class="mb-2 fw-bold display-6">{{ cards.low_stock_count }}</h2>
+              <small class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Needs Attention</small>
+            </div>
+            <div class="icon-box bg-danger bg-gradient"><i class="bi bi-exclamation-circle"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Ready to Dispatch</p>
+              <h2 class="mb-2 fw-bold display-6">{{ cards.pending_dispatches }}</h2>
+              <small class="text-warning"><i class="bi bi-truck me-1"></i>Approved</small>
+            </div>
+            <div class="icon-box bg-warning bg-gradient"><i class="bi bi-truck"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="card border-0 shadow-sm h-100 hero-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+              <p class="text-muted mb-1 fw-medium small text-uppercase">Linked Sub-Hubs</p>
+              <h2 class="mb-2 fw-bold display-6">{{ cards.linked_sub_hubs }}</h2>
+              <small class="text-primary"><i class="bi bi-building me-1"></i>Under This Hub</small>
+            </div>
+            <div class="icon-box bg-primary bg-gradient"><i class="bi bi-diagram-3"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Work Queues -->
+  <div class="row g-4 mb-4">
+    <!-- Ready to Dispatch -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-truck me-2 text-warning"></i>Ready to Dispatch</h5>
+          <p class="text-muted small mb-0">{{ cards.pending_dispatches }} approved needs lists from this hub</p>
+        </div>
+        <div class="card-body">
+          {% if work_queues.ready_to_dispatch %}
+            <div class="list-group list-group-flush">
+              {% for nl in work_queues.ready_to_dispatch %}
+                <a href="{{ url_for('needs_list_details', id=nl.id) }}" class="list-group-item list-group-item-action px-0">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ nl.list_number }}</div>
+                      <small class="text-muted"><i class="bi bi-building me-1"></i>{{ nl.agency_hub.name if nl.agency_hub else 'Unknown' }}</small>
+                    </div>
+                    <span class="badge bg-success">{{ nl.status }}</span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4"><i class="bi bi-check-circle me-2"></i>No pending dispatches</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-Hub Requests -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-diagram-3 me-2 text-primary"></i>Sub-Hub Requests</h5>
+          <p class="text-muted small mb-0">Recent needs lists from linked Sub-Hubs</p>
+        </div>
+        <div class="card-body">
+          {% if work_queues.sub_hub_requests %}
+            <div class="list-group list-group-flush">
+              {% for nl in work_queues.sub_hub_requests %}
+                <a href="{{ url_for('needs_list_details', id=nl.id) }}" class="list-group-item list-group-item-action px-0">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ nl.list_number }}</div>
+                      <small class="text-muted"><i class="bi bi-building me-1"></i>{{ nl.agency_hub.name if nl.agency_hub else 'Unknown' }}</small>
+                    </div>
+                    <span class="badge bg-{{ 'success' if nl.status in ['Approved', 'Dispatched', 'Completed'] else 'warning' if nl.status == 'Submitted' else 'secondary' }}">{{ nl.status }}</span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4">No recent sub-hub requests</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hub Stock Overview -->
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+          <h5 class="mb-1 fw-semibold"><i class="bi bi-boxes me-2 text-success"></i>Hub Stock Overview</h5>
+          <p class="text-muted small mb-0">Top 20 items in stock at {{ hub.name }}</p>
+        </div>
+        <div class="card-body">
+          {% if hub_stock %}
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Item</th>
+                    <th>SKU</th>
+                    <th class="text-end">Stock</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for entry in hub_stock %}
+                    <tr>
+                      <td>{{ entry.item.name }}</td>
+                      <td><code>{{ entry.item.sku }}</code></td>
+                      <td class="text-end fw-semibold">{{ "{:,}".format(entry.stock) }} {{ entry.item.unit }}</td>
+                      <td>
+                        {% if entry.is_low %}
+                          <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Low Stock</span>
+                        {% else %}
+                          <span class="badge bg-success">OK</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4">No stock data available</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}
